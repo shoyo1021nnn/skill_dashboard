@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>学部別 スキルバランス比較 (DB Ver)</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            font-family: 'Helvetica Neue', Arial, 'Hiragino Kaku Gothic ProN', 'Hiragino Sans', Meiryo, sans-serif;
+            background-color: #f4f6f9;
+            margin: 0;
+            padding: 40px 20px;
+            color: #333;
+        }
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: #ffffff;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+        }
+        h1 {
+            text-align: center;
+            font-size: 24px;
+            color: #2c3e50;
+            margin-bottom: 30px;
+        }
+        .selectors {
+            display: flex;
+            justify-content: center;
+            gap: 40px;
+            margin-bottom: 40px;
+        }
+        .select-box {
+            display: flex;
+            flex-direction: column;
+            width: 400px;
+        }
+        label {
+            font-weight: bold;
+            margin-bottom: 8px;
+            color: #4a5568;
+            font-size: 14px;
+        }
+        select {
+            padding: 12px;
+            font-size: 15px;
+            border: 1px solid #cbd5e1;
+            border-radius: 6px;
+            background-color: #fff;
+            cursor: pointer;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+        select:focus {
+            border-color: #3b82f6;
+        }
+        .chart-container {
+            display: flex;
+            justify-content: space-between;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+        .chart-wrapper {
+            position: relative;
+            flex: 1;
+            min-width: 500px;
+            height: 600px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>学部別 スキルバランス比較 (知識＆汎用)</h1>
+
+    <div class="selectors">
+        <div class="select-box">
+            <label for="univ1">大学 1 (青)</label>
+            <select id="univ1" style="margin-bottom: 15px;">
+                <option value="all">すべて</option>
+                <option value="九州大学">九州大学</option>
+                <option value="中部大学">中部大学</option>
+            </select>
+            <label for="dept1">学部 1 (青)</label>
+            <select id="dept1"></select>
+        </div>
+        <div class="select-box">
+            <label for="univ2">大学 2 (赤)</label>
+            <select id="univ2" style="margin-bottom: 15px;">
+                <option value="all">すべて</option>
+                <option value="九州大学">九州大学</option>
+                <option value="中部大学">中部大学</option>
+            </select>
+            <label for="dept2">学部 2 (赤)</label>
+            <select id="dept2"></select>
+        </div>
+    </div>
+
+    <div class="chart-container">
+        <div class="chart-wrapper">
+            <canvas id="radarChartA"></canvas>
+        </div>
+        <div class="chart-wrapper">
+            <canvas id="radarChartB"></canvas>
+        </div>
+    </div>
+</div>
+
+<script>
+    const labelsA = ["A-1: Education", "A-2: Humanities", "A-3: Arts", "A-4: Social Sciences,\nJournalism & Informatics", "A-5: Business,\nAdministration & Law", "A-6: Natural Sciences,\nMath & Statistics", "A-7: ICT", "A-8: Engineering,\nManufacturing & Construction", "A-9: Hardware Operation\n& Material Handling", "A-10: Agriculture, Forestry,\nFisheries & Veterinary", "A-11: health & Welfare", "A-12: Services"];
+    const labelsB = ["B-1: Teamwork &\nCommunication", "B-2: Critical &\nLogical Thinking", "B-3: Language &\nGlobal Competence", "B-4: Ethics", "B-5: Self-Management\n& Autonomous Growth", "B-6: Problem Solving", "B-7: Adaptability", "B-8: Creativity", "B-9: Expressiveness\n& Presentation", "B-10: Info Processing\n& Digital Literacy", "B-11: Computer skills", "B-12: Leadership &\nManagement"];
+    const dataDict = {"中部大学 人文学部": {"department_count": 6, "values_A": [0.6600166666666667, 1.5932000000000002, 0.5097666666666666, 1.6954, 0.4750666666666667, 0.2890833333333333, 0.5557833333333333, 0.12728333333333333, 0.21271666666666667, 0.018949999999999998, 0.4062666666666667, 0.17753333333333332], "values_B": [2.0593166666666667, 2.378633333333333, 2.0016166666666666, 0.9117166666666666, 2.2316833333333332, 1.7379833333333332, 1.0829, 0.7657666666666666, 2.0226166666666665, 1.4730333333333334, 0.68485, 0.6566833333333334]}, "中部大学 人間力創成総合教育センター": {"department_count": 1, "values_A": [0.3937, 1.0318, 0.2907, 0.9252, 0.3185, 0.6085, 0.6077, 0.1077, 0.3312, 0.0311, 0.4978, 0.1996], "values_B": [2.0, 1.8547, 1.9664, 0.7299, 2.115, 1.3879, 1.008, 0.3952, 1.6468, 1.0376, 0.6815, 0.2408]}, "中部大学 司書課程": {"department_count": 1, "values_A": [0.9524, 1.0952, 0.6667, 3.0, 1.1905, 0.0, 0.8095, 0.0, 0.1429, 0.0, 0.381, 0.8095], "values_B": [1.9048, 2.2381, 1.3333, 1.1905, 1.7143, 1.4762, 0.8095, 0.7619, 1.7619, 2.0, 0.619, 1.1905]}, "中部大学 国際関係学部": {"department_count": 1, "values_A": [0.4141, 1.3694, 0.2801, 1.5601, 0.4313, 0.2062, 0.3127, 0.067, 0.012, 0.0601, 0.1735, 0.1134], "values_B": [2.4502, 2.0086, 2.5842, 0.677, 2.0859, 1.3024, 1.1168, 0.5309, 2.2612, 0.9742, 0.3797, 0.4364]}, "中部大学 学芸員課程": {"department_count": 1, "values_A": [2.0333, 1.8, 0.9, 2.0, 1.6, 0.3, 0.8667, 0.2667, 0.3667, 0.1333, 0.4333, 1.0667], "values_B": [1.9667, 2.7333, 1.3667, 1.6333, 1.9333, 1.9333, 1.1667, 0.8333, 1.6667, 1.6667, 0.9, 1.5]}, "中部大学 工学部": {"department_count": 6, "values_A": [0.08748333333333332, 0.15093333333333334, 0.3155, 0.47585000000000005, 0.2810333333333333, 2.0131166666666664, 1.0323833333333334, 2.3789166666666666, 0.77635, 0.015683333333333334, 0.10306666666666665, 0.027733333333333332], "values_B": [1.3698166666666667, 2.37185, 0.8483499999999999, 0.42595, 2.0096833333333333, 2.3709000000000002, 0.8893833333333333, 0.7155166666666667, 1.1542999999999999, 1.4956833333333333, 1.0780666666666667, 0.5466166666666666]}, "中部大学 応用生物学部": {"department_count": 3, "values_A": [0.16949999999999998, 0.13873333333333335, 0.0323, 0.5049666666666667, 0.43293333333333334, 2.5685333333333333, 0.3711, 0.5723666666666666, 0.7280333333333333, 0.7885, 1.0697, 0.08676666666666666], "values_B": [1.5380666666666667, 2.2794666666666665, 1.0155333333333332, 0.6361666666666667, 2.0522333333333336, 2.0177, 0.8932666666666668, 0.3958333333333333, 1.3343333333333334, 1.3066, 0.451, 0.5994666666666667]}, "中部大学 教職課程": {"department_count": 1, "values_A": [2.9969, 0.7601, 0.0997, 1.8287, 0.9408, 0.3022, 0.8785, 0.0592, 0.0436, 0.0498, 1.1308, 0.0187], "values_B": [2.5732, 2.5171, 1.6667, 1.6386, 2.1745, 2.0685, 1.1059, 0.866, 2.1153, 1.4766, 0.7445, 1.6417]}, "中部大学 現代教育学部": {"department_count": 3, "values_A": [2.7747333333333333, 0.6429666666666667, 0.6164999999999999, 1.3411333333333333, 0.4836333333333333, 0.5972000000000001, 0.4888666666666667, 0.11366666666666665, 0.4836666666666667, 0.028399999999999998, 1.3374, 0.25333333333333335], "values_B": [2.5364666666666666, 2.300133333333333, 1.5998666666666665, 1.2994, 2.3682666666666665, 2.079266666666667, 1.2884, 1.1112666666666666, 2.1775333333333333, 1.3361333333333334, 0.6048, 1.1703333333333334]}, "中部大学 理工学部": {"department_count": 4, "values_A": [0.127725, 0.102525, 0.06585, 0.361225, 0.18662499999999999, 2.32, 0.936825, 1.6247, 0.5508, 0.018525, 0.1092, 0.091725], "values_B": [1.396325, 2.460375, 0.784025, 0.2968, 2.01195, 2.414425, 0.967, 0.541375, 1.123625, 1.2861, 0.980775, 0.395925]}, "中部大学 生命健康科学部": {"department_count": 7, "values_A": [0.47698571428571424, 0.296, 0.03774285714285714, 0.7487857142857143, 0.4211142857142857, 1.7867, 0.3280571428571429, 0.4120714285714286, 0.6765714285714285, 0.03292857142857143, 2.859457142857143, 0.1987142857142857], "values_B": [1.7316285714285713, 2.192657142857143, 0.9787857142857143, 1.1560857142857142, 2.018742857142857, 1.9717428571428572, 0.9563142857142858, 0.18747142857142857, 1.2015714285714285, 1.0387285714285714, 0.2982571428571429, 0.6218571428571428]}, "中部大学 経営情報学部": {"department_count": 1, "values_A": [0.1855, 0.1949, 0.1169, 1.7473, 2.0941, 0.8548, 0.7151, 0.1398, 0.1237, 0.0, 0.1519, 0.2003], "values_B": [1.9718, 2.4933, 1.2258, 0.6102, 2.1344, 2.1747, 1.0094, 0.7487, 1.6653, 1.5874, 0.8401, 1.3159]}, "九州大学 保健学科": {"department_count": 4, "values_A": [0.32575, 0.1631, 0.022125, 0.529325, 0.293875, 1.89165, 0.5365, 0.580625, 0.98825, 0.019175, 2.84025, 0.108325], "values_B": [1.517925, 2.118125, 0.994475, 1.0237749999999999, 1.818225, 1.8963999999999999, 0.8747, 0.198225, 0.98045, 1.0801, 0.66615, 0.46955]}, "九州大学 共創学部": {"department_count": 1, "values_A": [0.301, 1.0493, 0.1956, 1.5153, 0.3163, 1.3537, 0.5799, 0.3112, 0.3027, 0.1429, 0.4677, 0.0493], "values_B": [2.0816, 2.5731, 2.2041, 0.8537, 1.8707, 2.0068, 1.0425, 0.8588, 1.7721, 1.3776, 0.716, 0.699]}, "九州大学 医学部": {"department_count": 2, "values_A": [0.14345000000000002, 0.264, 0.0631, 0.37560000000000004, 0.15935, 2.2055499999999997, 0.43274999999999997, 0.2311, 0.5403, 0.03295, 2.8270999999999997, 0.04585], "values_B": [1.3933499999999999, 2.1326, 1.1662, 1.0340500000000001, 1.54975, 1.78245, 0.7674, 0.30445, 1.0286, 0.80965, 0.5078, 0.22465000000000002]}, "九州大学 基幹教育科目": {"department_count": 1, "values_A": [0.3198, 0.8112, 0.1726, 0.8683, 0.2007, 0.9351, 0.3974, 0.2649, 0.1935, 0.0609, 0.368, 0.1228], "values_B": [1.8349, 1.9244, 1.9282, 0.6262, 1.9884, 1.4358, 0.982, 0.5233, 1.6504, 0.8743, 0.4722, 0.4094]}, "九州大学 工学部": {"department_count": 12, "values_A": [0.046191666666666666, 0.08743333333333332, 0.12511666666666668, 0.28502500000000003, 0.24925, 2.4934, 0.5861, 2.3230166666666667, 0.6326333333333333, 0.037208333333333336, 0.15821666666666667, 0.036741666666666666], "values_B": [0.9812666666666666, 2.4545583333333334, 1.0044416666666667, 0.2733833333333333, 1.7262833333333332, 2.2838499999999997, 0.7186083333333334, 0.5668083333333334, 0.791025, 1.0002166666666668, 0.6650666666666667, 0.3475]}, "九州大学 教育学部": {"department_count": 1, "values_A": [2.8126, 1.0654, 0.1351, 2.0087, 0.5686, 0.3791, 0.4728, 0.0588, 0.0654, 0.0545, 1.0588, 0.0959], "values_B": [2.3769, 2.5316, 1.6797, 1.5403, 2.0632, 1.8715, 1.2222, 0.8039, 1.8715, 1.1547, 0.5229, 1.0218]}, "九州大学 歯学部": {"department_count": 1, "values_A": [0.7246, 0.2754, 0.087, 0.3841, 0.3804, 1.9312, 0.5, 0.4203, 1.2029, 0.0109, 2.9928, 0.058], "values_B": [1.587, 2.1667, 1.0254, 1.5688, 2.0145, 1.9167, 0.8225, 0.3043, 1.2101, 0.913, 0.6014, 0.4348]}, "九州大学 法学部": {"department_count": 1, "values_A": [0.1304, 1.1184, 0.0531, 1.9493, 2.6039, 0.0242, 0.1812, 0.0, 0.0072, 0.0, 0.1522, 0.0217], "values_B": [1.872, 2.8164, 2.0966, 1.3937, 1.901, 1.9251, 0.9372, 0.3092, 1.7995, 0.9372, 0.2464, 0.6063]}, "九州大学 理学部": {"department_count": 6, "values_A": [0.06613333333333334, 0.04935, 0.0234, 0.18555, 0.030866666666666667, 2.8766666666666665, 0.6725, 0.5674166666666667, 0.5523166666666667, 0.16908333333333334, 0.2175, 0.00925], "values_B": [0.9118833333333334, 2.5341, 0.9619333333333334, 0.16805, 1.79295, 2.05135, 0.7838833333333333, 0.40175, 0.8584499999999999, 1.0462, 0.69535, 0.13683333333333333]}, "九州大学 経済学部": {"department_count": 1, "values_A": [0.1175, 0.3632, 0.0235, 2.5085, 1.4509, 1.3654, 0.6132, 0.1047, 0.0321, 0.0299, 0.0897, 0.0449], "values_B": [1.8675, 2.7244, 1.6752, 0.4316, 1.8675, 1.9209, 0.9573, 0.5064, 1.5855, 1.4124, 0.7671, 0.9551]}, "九州大学 芸術工学部": {"department_count": 6, "values_A": [0.33918333333333334, 0.61445, 1.7467, 0.9777, 0.29325, 1.2228, 0.8360500000000001, 1.4327499999999997, 0.66945, 0.07013333333333334, 0.4155, 0.060066666666666664], "values_B": [1.8587666666666667, 2.29205, 1.3269333333333333, 0.41135000000000005, 1.84975, 2.1477166666666667, 1.0115833333333333, 1.9130500000000001, 1.9078833333333334, 1.3556333333333332, 0.9601666666666667, 0.6450166666666667]}, "九州大学 薬学部": {"department_count": 3, "values_A": [0.09873174603174602, 0.10279841269841268, 0.0061, 0.3193925925925926, 0.3861873015873016, 2.676136507936508, 0.20364179894179893, 0.4814703703703704, 1.001909523809524, 0.033633333333333335, 3.109661904761905, 0.2290185185185185], "values_B": [1.7612306878306878, 2.7048269841269845, 1.0802973544973546, 1.4798412698412697, 2.3837047619047618, 2.562216931216931, 0.9613677248677249, 0.7314169312169311, 1.5038698412698412, 0.8748243386243386, 0.2138084656084656, 0.559184126984127]}, "九州大学 農学部": {"department_count": 5, "values_A": [0.06324, 0.09037999999999999, 0.036180000000000004, 0.37928, 0.29986, 2.5408999999999997, 0.49648000000000003, 0.8530800000000001, 0.8082800000000001, 2.11624, 0.3366, 0.03004], "values_B": [1.21644, 2.16408, 1.17338, 0.39486, 1.6940000000000002, 1.7871, 0.68818, 0.36826, 0.9606200000000001, 1.0882, 0.67538, 0.37964]}};
+
+        const dept1Select = document.getElementById('dept1');
+    const dept2Select = document.getElementById('dept2');
+    const univ1Select = document.getElementById('univ1');
+    const univ2Select = document.getElementById('univ2');
+
+    const allDepts = Object.keys(dataDict).sort();
+
+    function populateDept(deptSelect, univFilter, defaultIndex) {
+        const currentVal = deptSelect.value;
+        deptSelect.innerHTML = '';
+        let matchedDepts = allDepts;
+        if (univFilter !== 'all') {
+            // 学部名は "九州大学 理学部" のようになっているので startsWith で判定
+            matchedDepts = allDepts.filter(dept => dept.startsWith(univFilter));
+        }
+
+        let foundCurrent = false;
+        matchedDepts.forEach((dept, idx) => {
+            const text = `${dept} (学科数: ${dataDict[dept].department_count})`;
+            const opt = document.createElement('option');
+            opt.value = dept;
+            opt.textContent = text;
+            deptSelect.appendChild(opt);
+
+            if (currentVal === dept) {
+                opt.selected = true;
+                foundCurrent = true;
+            }
+        });
+
+        if (!foundCurrent && matchedDepts.length > 0) {
+            if (defaultIndex < matchedDepts.length) {
+                deptSelect.selectedIndex = defaultIndex;
+            } else {
+                deptSelect.selectedIndex = 0;
+            }
+        }
+    }
+
+    univ1Select.addEventListener('change', () => {
+        populateDept(dept1Select, univ1Select.value, 0);
+        updateChart();
+    });
+
+    univ2Select.addEventListener('change', () => {
+        populateDept(dept2Select, univ2Select.value, 0);
+        updateChart();
+    });
+
+    // Initialize
+    populateDept(dept1Select, 'all', 0);
+    populateDept(dept2Select, 'all', 1);
+
+    const commonOptions = {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+            r: {
+                min: 0,
+                max: 3,
+                ticks: {
+                    stepSize: 0.5,
+                    backdropColor: 'transparent'
+                },
+                pointLabels: {
+                    font: {
+                        size: 11,
+                        weight: 'bold'
+                    },
+                    color: '#475569'
+                }
+            }
+        },
+        plugins: {
+            legend: {
+                position: 'top',
+                labels: {
+                    font: { size: 14, weight: 'bold' }
+                }
+            }
+        }
+    };
+
+    function createDataset(label, colorRGB) {
+        return {
+            label: label,
+            data: [],
+            backgroundColor: `rgba(${colorRGB}, 0.2)`,
+            borderColor: `rgba(${colorRGB}, 1)`,
+            borderWidth: 2,
+            pointBackgroundColor: `rgba(${colorRGB}, 1)`,
+            pointHoverBackgroundColor: '#fff',
+            pointHoverBorderColor: `rgba(${colorRGB}, 1)`
+        };
+    }
+
+    const ctxA = document.getElementById('radarChartA').getContext('2d');
+    const radarChartA = new Chart(ctxA, {
+        type: 'radar',
+        data: {
+            labels: labelsA,
+            datasets: [
+                createDataset('', '54, 162, 235'),
+                createDataset('', '255, 99, 132')
+            ]
+        },
+        options: {
+            ...commonOptions,
+            plugins: {
+                ...commonOptions.plugins,
+                title: { display: true, text: '知識関連スキル (A-1〜A-12)', font: { size: 18 } }
+            }
+        }
+    });
+
+    const ctxB = document.getElementById('radarChartB').getContext('2d');
+    const radarChartB = new Chart(ctxB, {
+        type: 'radar',
+        data: {
+            labels: labelsB,
+            datasets: [
+                createDataset('', '54, 162, 235'),
+                createDataset('', '255, 99, 132')
+            ]
+        },
+        options: {
+            ...commonOptions,
+            plugins: {
+                ...commonOptions.plugins,
+                title: { display: true, text: '汎用スキル関連 (B-1〜B-12)', font: { size: 18 } }
+            }
+        }
+    });
+
+    function updateChart() {
+        const val1 = dept1Select.value;
+        const val2 = dept2Select.value;
+
+        if (dataDict[val1]) {
+            radarChartA.data.datasets[0].label = val1;
+            radarChartA.data.datasets[0].data = dataDict[val1].values_A;
+            radarChartB.data.datasets[0].label = val1;
+            radarChartB.data.datasets[0].data = dataDict[val1].values_B;
+        }
+        if (dataDict[val2]) {
+            radarChartA.data.datasets[1].label = val2;
+            radarChartA.data.datasets[1].data = dataDict[val2].values_A;
+            radarChartB.data.datasets[1].label = val2;
+            radarChartB.data.datasets[1].data = dataDict[val2].values_B;
+        }
+        radarChartA.update();
+        radarChartB.update();
+    }
+
+    dept1Select.addEventListener('change', updateChart);
+    dept2Select.addEventListener('change', updateChart);
+
+    updateChart();
+</script>
+
+</body>
+</html>
