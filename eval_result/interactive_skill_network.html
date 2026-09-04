@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>スキル共起ネットワーク分析</title>
+    <!-- vis-network のCDN読み込み -->
+    <script type="text/javascript" src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
+    <style>
+        body {
+            font-family: 'Helvetica Neue', Arial, 'Hiragino Kaku Gothic ProN', 'Hiragino Sans', Meiryo, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f4f6f9;
+            color: #333;
+        }
+        .header {
+            background-color: #ffffff;
+            padding: 20px 30px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        h1 { margin: 0; font-size: 20px; color: #2c3e50; }
+        .controls {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            background: #f8fafc;
+            padding: 10px 20px;
+            border-radius: 8px;
+            border: 1px solid #e2e8f0;
+        }
+        input[type=range] { width: 200px; cursor: pointer; }
+        #network-container {
+            width: 100vw;
+            height: calc(100vh - 80px); /* ヘッダー分を引いた高さ */
+        }
+        .legend {
+            position: absolute;
+            bottom: 30px;
+            left: 30px;
+            background: rgba(255, 255, 255, 0.9);
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            border: 1px solid #e2e8f0;
+        }
+        .legend-item { display: flex; align-items: center; margin-bottom: 5px; font-size: 14px;}
+        .legend-color { width: 16px; height: 16px; border-radius: 50%; margin-right: 10px; }
+    </style>
+</head>
+<body>
+
+<div class="header">
+    <h1>シラバススキル 共起ネットワーク分析</h1>
+    <div class="controls">
+        <label for="thresholdSlider"><strong>相関係数のしきい値: <span id="thresholdValue" style="color:#3b82f6; font-size:18px;">0.30</span></strong></label>
+        <input type="range" id="thresholdSlider" min="0.1" max="0.8" step="0.05" value="0.30">
+    </div>
+</div>
+
+<div id="network-container"></div>
+
+<div class="legend">
+    <div class="legend-item"><div class="legend-color" style="background: #aaddff; border: 2px solid #77bbff;"></div>(A) 知識関連スキル</div>
+    <div class="legend-item"><div class="legend-color" style="background: #ffccaa; border: 2px solid #ffaa77;"></div>(B) 汎用スキル</div>
+    <div style="margin-top: 10px; font-size: 12px; color: #666;">
+        ※丸の大きさ：スキルの平均ウェイト<br>
+        ※線の太さ：スキル間の相関係数<br>
+        ※丸はドラッグして動かせます
+    </div>
+</div>
+
+<script>
+    // Pythonから埋め込まれるデータ
+    const allNodes = [{"id": "A-1: Education", "label": "A-1: Education", "value": 0.8436617378302044, "group": "A", "title": "【A-1: Education】<br>平均ウェイト: 0.844"}, {"id": "A-2: Humanities", "label": "A-2: Humanities", "value": 1.4357866755274962, "group": "A", "title": "【A-2: Humanities】<br>平均ウェイト: 1.436"}, {"id": "A-3: Arts", "label": "A-3: Arts", "value": 0.6929722545273301, "group": "A", "title": "【A-3: Arts】<br>平均ウェイト: 0.693"}, {"id": "A-4: Social Sciences,\nJournalism & Informatics", "label": "A-4: Social Sciences,\nJournalism & Informatics", "value": 2.265326466190397, "group": "A", "title": "【A-4: Social Sciences,\nJournalism & Informatics】<br>平均ウェイト: 2.265"}, {"id": "A-5: Business,\nAdministration & Law", "label": "A-5: Business,\nAdministration & Law", "value": 0.9642797806944675, "group": "A", "title": "【A-5: Business,\nAdministration & Law】<br>平均ウェイト: 0.964"}, {"id": "A-6: Natural Sciences,\nMath & Statistics", "label": "A-6: Natural Sciences,\nMath & Statistics", "value": 4.950157833527164, "group": "A", "title": "【A-6: Natural Sciences,\nMath & Statistics】<br>平均ウェイト: 4.950"}, {"id": "A-7: ICT", "label": "A-7: ICT", "value": 1.6439607908290415, "group": "A", "title": "【A-7: ICT】<br>平均ウェイト: 1.644"}, {"id": "A-8: Engineering,\nManufacturing & Construction", "label": "A-8: Engineering,\nManufacturing & Construction", "value": 2.1943844492440605, "group": "A", "title": "【A-8: Engineering,\nManufacturing & Construction】<br>平均ウェイト: 2.194"}, {"id": "A-9: Hardware Operation\n& Material Handling", "label": "A-9: Hardware Operation\n& Material Handling", "value": 1.326466190397076, "group": "A", "title": "【A-9: Hardware Operation\n& Material Handling】<br>平均ウェイト: 1.326"}, {"id": "A-10: Agriculture, Forestry,\nFisheries & Veterinary", "label": "A-10: Agriculture, Forestry,\nFisheries & Veterinary", "value": 0.9460043196544277, "group": "A", "title": "【A-10: Agriculture, Forestry,\nFisheries & Veterinary】<br>平均ウェイト: 0.946"}, {"id": "A-11: health & Welfare", "label": "A-11: health & Welfare", "value": 1.8405050672869248, "group": "A", "title": "【A-11: health & Welfare】<br>平均ウェイト: 1.841"}, {"id": "A-12: Services", "label": "A-12: Services", "value": 0.2217976408041203, "group": "A", "title": "【A-12: Services】<br>平均ウェイト: 0.222"}, {"id": "B-1: Teamwork &\nCommunication", "label": "B-1: Teamwork &\nCommunication", "value": 4.625519189234092, "group": "B", "title": "【B-1: Teamwork &\nCommunication】<br>平均ウェイト: 4.626"}, {"id": "B-2: Critical &\nLogical Thinking", "label": "B-2: Critical &\nLogical Thinking", "value": 6.697458049509885, "group": "B", "title": "【B-2: Critical &\nLogical Thinking】<br>平均ウェイト: 6.697"}, {"id": "B-3: Language &\nGlobal Competence", "label": "B-3: Language &\nGlobal Competence", "value": 4.452566871573351, "group": "B", "title": "【B-3: Language &\nGlobal Competence】<br>平均ウェイト: 4.453"}, {"id": "B-4: Ethics", "label": "B-4: Ethics", "value": 1.7499584648612727, "group": "B", "title": "【B-4: Ethics】<br>平均ウェイト: 1.750"}, {"id": "B-5: Self-Management\n& Autonomous Growth", "label": "B-5: Self-Management\n& Autonomous Growth", "value": 5.591958797142382, "group": "B", "title": "【B-5: Self-Management\n& Autonomous Growth】<br>平均ウェイト: 5.592"}, {"id": "B-6: Problem Solving", "label": "B-6: Problem Solving", "value": 5.492939026416348, "group": "B", "title": "【B-6: Problem Solving】<br>平均ウェイト: 5.493"}, {"id": "B-7: Adaptability", "label": "B-7: Adaptability", "value": 2.676025917926566, "group": "B", "title": "【B-7: Adaptability】<br>平均ウェイト: 2.676"}, {"id": "B-8: Creativity", "label": "B-8: Creativity", "value": 1.766904801462037, "group": "B", "title": "【B-8: Creativity】<br>平均ウェイト: 1.767"}, {"id": "B-9: Expressiveness\n& Presentation", "label": "B-9: Expressiveness\n& Presentation", "value": 4.011795979398571, "group": "B", "title": "【B-9: Expressiveness\n& Presentation】<br>平均ウェイト: 4.012"}, {"id": "B-10: Info Processing\n& Digital Literacy", "label": "B-10: Info Processing\n& Digital Literacy", "value": 3.0729357036052503, "group": "B", "title": "【B-10: Info Processing\n& Digital Literacy】<br>平均ウェイト: 3.073"}, {"id": "B-11: Computer skills", "label": "B-11: Computer skills", "value": 1.8596112311015118, "group": "B", "title": "【B-11: Computer skills】<br>平均ウェイト: 1.860"}, {"id": "B-12: Leadership &\nManagement", "label": "B-12: Leadership &\nManagement", "value": 1.2948994849642799, "group": "B", "title": "【B-12: Leadership &\nManagement】<br>平均ウェイト: 1.295"}];
+    const allEdges = [{"from": "A-1: Education", "to": "A-2: Humanities", "value": 0.2610955959080883, "title": "相関係数: 0.261"}, {"from": "A-1: Education", "to": "A-4: Social Sciences,\nJournalism & Informatics", "value": 0.307143754331786, "title": "相関係数: 0.307"}, {"from": "A-1: Education", "to": "A-11: health & Welfare", "value": 0.15004147906854928, "title": "相関係数: 0.150"}, {"from": "A-1: Education", "to": "A-12: Services", "value": 0.11873574976672593, "title": "相関係数: 0.119"}, {"from": "A-1: Education", "to": "B-1: Teamwork &\nCommunication", "value": 0.40742138221827645, "title": "相関係数: 0.407"}, {"from": "A-1: Education", "to": "B-3: Language &\nGlobal Competence", "value": 0.14962755866538652, "title": "相関係数: 0.150"}, {"from": "A-1: Education", "to": "B-4: Ethics", "value": 0.3168013705883661, "title": "相関係数: 0.317"}, {"from": "A-1: Education", "to": "B-5: Self-Management\n& Autonomous Growth", "value": 0.34081302248108375, "title": "相関係数: 0.341"}, {"from": "A-1: Education", "to": "B-7: Adaptability", "value": 0.2947029550488959, "title": "相関係数: 0.295"}, {"from": "A-1: Education", "to": "B-8: Creativity", "value": 0.1534611339713837, "title": "相関係数: 0.153"}, {"from": "A-1: Education", "to": "B-9: Expressiveness\n& Presentation", "value": 0.3432659996311236, "title": "相関係数: 0.343"}, {"from": "A-1: Education", "to": "B-12: Leadership &\nManagement", "value": 0.3130355011732412, "title": "相関係数: 0.313"}, {"from": "A-2: Humanities", "to": "A-3: Arts", "value": 0.22280946380391814, "title": "相関係数: 0.223"}, {"from": "A-2: Humanities", "to": "A-4: Social Sciences,\nJournalism & Informatics", "value": 0.40562382265567537, "title": "相関係数: 0.406"}, {"from": "A-2: Humanities", "to": "A-5: Business,\nAdministration & Law", "value": 0.1174899943054607, "title": "相関係数: 0.117"}, {"from": "A-2: Humanities", "to": "B-1: Teamwork &\nCommunication", "value": 0.373125821469855, "title": "相関係数: 0.373"}, {"from": "A-2: Humanities", "to": "B-3: Language &\nGlobal Competence", "value": 0.5658061755500141, "title": "相関係数: 0.566"}, {"from": "A-2: Humanities", "to": "B-4: Ethics", "value": 0.38349276279989114, "title": "相関係数: 0.383"}, {"from": "A-2: Humanities", "to": "B-5: Self-Management\n& Autonomous Growth", "value": 0.15502767717681087, "title": "相関係数: 0.155"}, {"from": "A-2: Humanities", "to": "B-7: Adaptability", "value": 0.17137036772207784, "title": "相関係数: 0.171"}, {"from": "A-2: Humanities", "to": "B-8: Creativity", "value": 0.13647784671428337, "title": "相関係数: 0.136"}, {"from": "A-2: Humanities", "to": "B-9: Expressiveness\n& Presentation", "value": 0.4436298152124408, "title": "相関係数: 0.444"}, {"from": "A-3: Arts", "to": "A-4: Social Sciences,\nJournalism & Informatics", "value": 0.10588123147706183, "title": "相関係数: 0.106"}, {"from": "A-3: Arts", "to": "A-8: Engineering,\nManufacturing & Construction", "value": 0.16418048802006704, "title": "相関係数: 0.164"}, {"from": "A-3: Arts", "to": "B-1: Teamwork &\nCommunication", "value": 0.20155555583676035, "title": "相関係数: 0.202"}, {"from": "A-3: Arts", "to": "B-7: Adaptability", "value": 0.16163178912881482, "title": "相関係数: 0.162"}, {"from": "A-3: Arts", "to": "B-8: Creativity", "value": 0.6747940026837477, "title": "相関係数: 0.675"}, {"from": "A-3: Arts", "to": "B-9: Expressiveness\n& Presentation", "value": 0.3422503717118724, "title": "相関係数: 0.342"}, {"from": "A-3: Arts", "to": "B-12: Leadership &\nManagement", "value": 0.14771977341931813, "title": "相関係数: 0.148"}, {"from": "A-4: Social Sciences,\nJournalism & Informatics", "to": "A-5: Business,\nAdministration & Law", "value": 0.5049922569127661, "title": "相関係数: 0.505"}, {"from": "A-4: Social Sciences,\nJournalism & Informatics", "to": "A-12: Services", "value": 0.12094967241938118, "title": "相関係数: 0.121"}, {"from": "A-4: Social Sciences,\nJournalism & Informatics", "to": "B-1: Teamwork &\nCommunication", "value": 0.48905587271560774, "title": "相関係数: 0.489"}, {"from": "A-4: Social Sciences,\nJournalism & Informatics", "to": "B-2: Critical &\nLogical Thinking", "value": 0.25152642400968817, "title": "相関係数: 0.252"}, {"from": "A-4: Social Sciences,\nJournalism & Informatics", "to": "B-3: Language &\nGlobal Competence", "value": 0.3020149399521746, "title": "相関係数: 0.302"}, {"from": "A-4: Social Sciences,\nJournalism & Informatics", "to": "B-4: Ethics", "value": 0.4567724838034727, "title": "相関係数: 0.457"}, {"from": "A-4: Social Sciences,\nJournalism & Informatics", "to": "B-5: Self-Management\n& Autonomous Growth", "value": 0.10629179471989031, "title": "相関係数: 0.106"}, {"from": "A-4: Social Sciences,\nJournalism & Informatics", "to": "B-7: Adaptability", "value": 0.31512734512955964, "title": "相関係数: 0.315"}, {"from": "A-4: Social Sciences,\nJournalism & Informatics", "to": "B-8: Creativity", "value": 0.23200413206205533, "title": "相関係数: 0.232"}, {"from": "A-4: Social Sciences,\nJournalism & Informatics", "to": "B-9: Expressiveness\n& Presentation", "value": 0.3888757944162948, "title": "相関係数: 0.389"}, {"from": "A-4: Social Sciences,\nJournalism & Informatics", "to": "B-10: Info Processing\n& Digital Literacy", "value": 0.22455521664594894, "title": "相関係数: 0.225"}, {"from": "A-4: Social Sciences,\nJournalism & Informatics", "to": "B-12: Leadership &\nManagement", "value": 0.4584616271485839, "title": "相関係数: 0.458"}, {"from": "A-5: Business,\nAdministration & Law", "to": "A-12: Services", "value": 0.11193407005256786, "title": "相関係数: 0.112"}, {"from": "A-5: Business,\nAdministration & Law", "to": "B-1: Teamwork &\nCommunication", "value": 0.17710503969956898, "title": "相関係数: 0.177"}, {"from": "A-5: Business,\nAdministration & Law", "to": "B-2: Critical &\nLogical Thinking", "value": 0.16038030714728516, "title": "相関係数: 0.160"}, {"from": "A-5: Business,\nAdministration & Law", "to": "B-4: Ethics", "value": 0.3678006525908423, "title": "相関係数: 0.368"}, {"from": "A-5: Business,\nAdministration & Law", "to": "B-7: Adaptability", "value": 0.10272589814874165, "title": "相関係数: 0.103"}, {"from": "A-5: Business,\nAdministration & Law", "to": "B-9: Expressiveness\n& Presentation", "value": 0.10639756869423024, "title": "相関係数: 0.106"}, {"from": "A-5: Business,\nAdministration & Law", "to": "B-12: Leadership &\nManagement", "value": 0.4312588271390878, "title": "相関係数: 0.431"}, {"from": "A-6: Natural Sciences,\nMath & Statistics", "to": "A-7: ICT", "value": 0.10876061439842995, "title": "相関係数: 0.109"}, {"from": "A-6: Natural Sciences,\nMath & Statistics", "to": "A-8: Engineering,\nManufacturing & Construction", "value": 0.35646972657024306, "title": "相関係数: 0.356"}, {"from": "A-6: Natural Sciences,\nMath & Statistics", "to": "A-9: Hardware Operation\n& Material Handling", "value": 0.2595116965005494, "title": "相関係数: 0.260"}, {"from": "A-6: Natural Sciences,\nMath & Statistics", "to": "A-10: Agriculture, Forestry,\nFisheries & Veterinary", "value": 0.24636537214249613, "title": "相関係数: 0.246"}, {"from": "A-6: Natural Sciences,\nMath & Statistics", "to": "B-2: Critical &\nLogical Thinking", "value": 0.3138808988169155, "title": "相関係数: 0.314"}, {"from": "A-6: Natural Sciences,\nMath & Statistics", "to": "B-6: Problem Solving", "value": 0.4076314575957015, "title": "相関係数: 0.408"}, {"from": "A-6: Natural Sciences,\nMath & Statistics", "to": "B-11: Computer skills", "value": 0.1108594844579874, "title": "相関係数: 0.111"}, {"from": "A-7: ICT", "to": "A-8: Engineering,\nManufacturing & Construction", "value": 0.14178268347763395, "title": "相関係数: 0.142"}, {"from": "A-7: ICT", "to": "A-9: Hardware Operation\n& Material Handling", "value": 0.17077459810479675, "title": "相関係数: 0.171"}, {"from": "A-7: ICT", "to": "B-2: Critical &\nLogical Thinking", "value": 0.17265978842785273, "title": "相関係数: 0.173"}, {"from": "A-7: ICT", "to": "B-6: Problem Solving", "value": 0.3569175685690505, "title": "相関係数: 0.357"}, {"from": "A-7: ICT", "to": "B-7: Adaptability", "value": 0.1118342161537223, "title": "相関係数: 0.112"}, {"from": "A-7: ICT", "to": "B-8: Creativity", "value": 0.22791784573168428, "title": "相関係数: 0.228"}, {"from": "A-7: ICT", "to": "B-10: Info Processing\n& Digital Literacy", "value": 0.7886712192346795, "title": "相関係数: 0.789"}, {"from": "A-7: ICT", "to": "B-11: Computer skills", "value": 0.8870994898111385, "title": "相関係数: 0.887"}, {"from": "A-8: Engineering,\nManufacturing & Construction", "to": "A-9: Hardware Operation\n& Material Handling", "value": 0.3966056754351138, "title": "相関係数: 0.397"}, {"from": "A-8: Engineering,\nManufacturing & Construction", "to": "B-2: Critical &\nLogical Thinking", "value": 0.14905800217243992, "title": "相関係数: 0.149"}, {"from": "A-8: Engineering,\nManufacturing & Construction", "to": "B-6: Problem Solving", "value": 0.3811215120774055, "title": "相関係数: 0.381"}, {"from": "A-8: Engineering,\nManufacturing & Construction", "to": "B-8: Creativity", "value": 0.13660196917348058, "title": "相関係数: 0.137"}, {"from": "A-8: Engineering,\nManufacturing & Construction", "to": "B-11: Computer skills", "value": 0.13327947449168728, "title": "相関係数: 0.133"}, {"from": "A-9: Hardware Operation\n& Material Handling", "to": "A-10: Agriculture, Forestry,\nFisheries & Veterinary", "value": 0.15754170265793255, "title": "相関係数: 0.158"}, {"from": "A-9: Hardware Operation\n& Material Handling", "to": "A-11: health & Welfare", "value": 0.16305348098205885, "title": "相関係数: 0.163"}, {"from": "A-9: Hardware Operation\n& Material Handling", "to": "A-12: Services", "value": 0.12503983103719268, "title": "相関係数: 0.125"}, {"from": "A-9: Hardware Operation\n& Material Handling", "to": "B-5: Self-Management\n& Autonomous Growth", "value": 0.13237075503755985, "title": "相関係数: 0.132"}, {"from": "A-9: Hardware Operation\n& Material Handling", "to": "B-6: Problem Solving", "value": 0.2040164482507759, "title": "相関係数: 0.204"}, {"from": "A-9: Hardware Operation\n& Material Handling", "to": "B-7: Adaptability", "value": 0.18144036279767883, "title": "相関係数: 0.181"}, {"from": "A-9: Hardware Operation\n& Material Handling", "to": "B-10: Info Processing\n& Digital Literacy", "value": 0.24835541228468305, "title": "相関係数: 0.248"}, {"from": "A-9: Hardware Operation\n& Material Handling", "to": "B-11: Computer skills", "value": 0.22796312488239073, "title": "相関係数: 0.228"}, {"from": "A-11: health & Welfare", "to": "A-12: Services", "value": 0.25629641067372405, "title": "相関係数: 0.256"}, {"from": "A-11: health & Welfare", "to": "B-4: Ethics", "value": 0.3144267326579332, "title": "相関係数: 0.314"}, {"from": "A-12: Services", "to": "B-1: Teamwork &\nCommunication", "value": 0.25646126672792896, "title": "相関係数: 0.256"}, {"from": "A-12: Services", "to": "B-5: Self-Management\n& Autonomous Growth", "value": 0.17490957438445898, "title": "相関係数: 0.175"}, {"from": "A-12: Services", "to": "B-7: Adaptability", "value": 0.2983928561774707, "title": "相関係数: 0.298"}, {"from": "A-12: Services", "to": "B-12: Leadership &\nManagement", "value": 0.30250692408080904, "title": "相関係数: 0.303"}, {"from": "B-1: Teamwork &\nCommunication", "to": "B-3: Language &\nGlobal Competence", "value": 0.5568294415832385, "title": "相関係数: 0.557"}, {"from": "B-1: Teamwork &\nCommunication", "to": "B-4: Ethics", "value": 0.4012090726693476, "title": "相関係数: 0.401"}, {"from": "B-1: Teamwork &\nCommunication", "to": "B-5: Self-Management\n& Autonomous Growth", "value": 0.503425252013032, "title": "相関係数: 0.503"}, {"from": "B-1: Teamwork &\nCommunication", "to": "B-7: Adaptability", "value": 0.6257283700338148, "title": "相関係数: 0.626"}, {"from": "B-1: Teamwork &\nCommunication", "to": "B-8: Creativity", "value": 0.379328768085354, "title": "相関係数: 0.379"}, {"from": "B-1: Teamwork &\nCommunication", "to": "B-9: Expressiveness\n& Presentation", "value": 0.8153435795182468, "title": "相関係数: 0.815"}, {"from": "B-1: Teamwork &\nCommunication", "to": "B-10: Info Processing\n& Digital Literacy", "value": 0.14003541162750258, "title": "相関係数: 0.140"}, {"from": "B-1: Teamwork &\nCommunication", "to": "B-12: Leadership &\nManagement", "value": 0.5860990197814586, "title": "相関係数: 0.586"}, {"from": "B-2: Critical &\nLogical Thinking", "to": "B-4: Ethics", "value": 0.1393746213083992, "title": "相関係数: 0.139"}, {"from": "B-2: Critical &\nLogical Thinking", "to": "B-6: Problem Solving", "value": 0.6442010748694137, "title": "相関係数: 0.644"}, {"from": "B-2: Critical &\nLogical Thinking", "to": "B-8: Creativity", "value": 0.14667668389953345, "title": "相関係数: 0.147"}, {"from": "B-2: Critical &\nLogical Thinking", "to": "B-10: Info Processing\n& Digital Literacy", "value": 0.2801227746408263, "title": "相関係数: 0.280"}, {"from": "B-2: Critical &\nLogical Thinking", "to": "B-11: Computer skills", "value": 0.13906656856222238, "title": "相関係数: 0.139"}, {"from": "B-3: Language &\nGlobal Competence", "to": "B-4: Ethics", "value": 0.20525112021492078, "title": "相関係数: 0.205"}, {"from": "B-3: Language &\nGlobal Competence", "to": "B-5: Self-Management\n& Autonomous Growth", "value": 0.260191352180104, "title": "相関係数: 0.260"}, {"from": "B-3: Language &\nGlobal Competence", "to": "B-7: Adaptability", "value": 0.21962759305593102, "title": "相関係数: 0.220"}, {"from": "B-3: Language &\nGlobal Competence", "to": "B-9: Expressiveness\n& Presentation", "value": 0.6585848446418127, "title": "相関係数: 0.659"}, {"from": "B-3: Language &\nGlobal Competence", "to": "B-12: Leadership &\nManagement", "value": 0.12490585942468373, "title": "相関係数: 0.125"}, {"from": "B-4: Ethics", "to": "B-5: Self-Management\n& Autonomous Growth", "value": 0.14047936819920276, "title": "相関係数: 0.140"}, {"from": "B-4: Ethics", "to": "B-7: Adaptability", "value": 0.28683688337552815, "title": "相関係数: 0.287"}, {"from": "B-4: Ethics", "to": "B-9: Expressiveness\n& Presentation", "value": 0.28994680556430397, "title": "相関係数: 0.290"}, {"from": "B-4: Ethics", "to": "B-10: Info Processing\n& Digital Literacy", "value": 0.10543300357237914, "title": "相関係数: 0.105"}, {"from": "B-4: Ethics", "to": "B-12: Leadership &\nManagement", "value": 0.32319452557252026, "title": "相関係数: 0.323"}, {"from": "B-5: Self-Management\n& Autonomous Growth", "to": "B-7: Adaptability", "value": 0.5452198693416112, "title": "相関係数: 0.545"}, {"from": "B-5: Self-Management\n& Autonomous Growth", "to": "B-8: Creativity", "value": 0.15718398617782606, "title": "相関係数: 0.157"}, {"from": "B-5: Self-Management\n& Autonomous Growth", "to": "B-9: Expressiveness\n& Presentation", "value": 0.4382810508619199, "title": "相関係数: 0.438"}, {"from": "B-5: Self-Management\n& Autonomous Growth", "to": "B-10: Info Processing\n& Digital Literacy", "value": 0.15732737600268798, "title": "相関係数: 0.157"}, {"from": "B-5: Self-Management\n& Autonomous Growth", "to": "B-12: Leadership &\nManagement", "value": 0.2910220398099808, "title": "相関係数: 0.291"}, {"from": "B-6: Problem Solving", "to": "B-7: Adaptability", "value": 0.1548236677440236, "title": "相関係数: 0.155"}, {"from": "B-6: Problem Solving", "to": "B-8: Creativity", "value": 0.25804354536855867, "title": "相関係数: 0.258"}, {"from": "B-6: Problem Solving", "to": "B-10: Info Processing\n& Digital Literacy", "value": 0.34129155930172567, "title": "相関係数: 0.341"}, {"from": "B-6: Problem Solving", "to": "B-11: Computer skills", "value": 0.3299976150840039, "title": "相関係数: 0.330"}, {"from": "B-6: Problem Solving", "to": "B-12: Leadership &\nManagement", "value": 0.15168096009631035, "title": "相関係数: 0.152"}, {"from": "B-7: Adaptability", "to": "B-8: Creativity", "value": 0.33319241811441175, "title": "相関係数: 0.333"}, {"from": "B-7: Adaptability", "to": "B-9: Expressiveness\n& Presentation", "value": 0.4743686368953594, "title": "相関係数: 0.474"}, {"from": "B-7: Adaptability", "to": "B-10: Info Processing\n& Digital Literacy", "value": 0.201734843286294, "title": "相関係数: 0.202"}, {"from": "B-7: Adaptability", "to": "B-11: Computer skills", "value": 0.1188130091933397, "title": "相関係数: 0.119"}, {"from": "B-7: Adaptability", "to": "B-12: Leadership &\nManagement", "value": 0.4571794768152092, "title": "相関係数: 0.457"}, {"from": "B-8: Creativity", "to": "B-9: Expressiveness\n& Presentation", "value": 0.4907584568316843, "title": "相関係数: 0.491"}, {"from": "B-8: Creativity", "to": "B-10: Info Processing\n& Digital Literacy", "value": 0.2516565684788332, "title": "相関係数: 0.252"}, {"from": "B-8: Creativity", "to": "B-11: Computer skills", "value": 0.22448340047289583, "title": "相関係数: 0.224"}, {"from": "B-8: Creativity", "to": "B-12: Leadership &\nManagement", "value": 0.36899021414565303, "title": "相関係数: 0.369"}, {"from": "B-9: Expressiveness\n& Presentation", "to": "B-10: Info Processing\n& Digital Literacy", "value": 0.13602499924892486, "title": "相関係数: 0.136"}, {"from": "B-9: Expressiveness\n& Presentation", "to": "B-12: Leadership &\nManagement", "value": 0.4203840635177744, "title": "相関係数: 0.420"}, {"from": "B-10: Info Processing\n& Digital Literacy", "to": "B-11: Computer skills", "value": 0.8297509822105538, "title": "相関係数: 0.830"}, {"from": "B-10: Info Processing\n& Digital Literacy", "to": "B-12: Leadership &\nManagement", "value": 0.18967408491946164, "title": "相関係数: 0.190"}];
+
+    // Vis.js 用のデータセット初期化
+    const nodesDataSet = new vis.DataSet(allNodes);
+    const edgesDataSet = new vis.DataSet();
+
+    // ネットワークの描画領域とオプション設定
+    const container = document.getElementById('network-container');
+    const data = { nodes: nodesDataSet, edges: edgesDataSet };
+    const options = {
+        nodes: {
+            shape: 'dot',
+            scaling: { min: 10, max: 40 },
+            font: { size: 14, face: 'Meiryo', strokeWidth: 3, strokeColor: '#ffffff' }
+        },
+        edges: {
+            color: { inherit: false, color: '#b2bfc9', opacity: 0.6 },
+            scaling: { min: 1, max: 8 },
+            smooth: { type: 'continuous' }
+        },
+        groups: {
+            A: { color: { background: '#aaddff', border: '#77bbff' } },
+            B: { color: { background: '#ffccaa', border: '#ffaa77' } }
+        },
+        physics: {
+            forceAtlas2Based: { gravitationalConstant: -100, centralGravity: 0.01, springLength: 200, springConstant: 0.08 },
+            maxVelocity: 50,
+            solver: 'forceAtlas2Based',
+            timestep: 0.35,
+            stabilization: { iterations: 150 }
+        },
+        interaction: { hover: true, tooltipDelay: 100 }
+    };
+
+    // ネットワークの生成
+    const network = new vis.Network(container, data, options);
+
+    // スライダーの制御処理
+    const slider = document.getElementById('thresholdSlider');
+    const thresholdValueLabel = document.getElementById('thresholdValue');
+
+    function updateNetwork() {
+        const threshold = parseFloat(slider.value);
+        thresholdValueLabel.innerText = threshold.toFixed(2);
+
+        // しきい値以上のエッジだけを抽出して更新
+        const filteredEdges = allEdges.filter(edge => edge.value >= threshold);
+
+        edgesDataSet.clear();
+        edgesDataSet.add(filteredEdges);
+    }
+
+    // スライダーを動かしたときにネットワークを再描画
+    slider.addEventListener('input', updateNetwork);
+
+    // 初回描画
+    updateNetwork();
+</script>
+
+</body>
+</html>

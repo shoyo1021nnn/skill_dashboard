@@ -1,0 +1,248 @@
+
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>スキル補完システム（大学レベル・マクロな学習支援）</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+  body { font-family: sans-serif; margin: 0; padding: 0; display: flex; height: 100vh; color: #333; }
+  #sidebar { width: 280px; background-color: #f4f4f4; border-right: 1px solid #ccc; padding: 20px; overflow-y: auto; }
+  #sidebar h2 { font-size: 16px; margin-top: 0; border-bottom: 1px solid #ccc; padding-bottom: 10px; }
+  .dept-btn { display: block; width: 100%; padding: 8px 10px; margin-bottom: 5px; background-color: white; border: 1px solid #ccc; border-radius: 4px; cursor: pointer; text-align: left; font-size: 14px; }
+  .dept-btn:hover { background-color: #e9e9e9; }
+  .dept-btn.active { background-color: #007bff; color: white; border-color: #007bff; }
+  #main { flex-grow: 1; padding: 30px; overflow-y: auto; }
+  h1 { font-size: 24px; border-bottom: 2px solid #007bff; padding-bottom: 10px; margin-bottom: 20px; }
+
+  .mode-controls { margin-bottom: 20px; padding: 15px; background-color: #e9ecef; border-radius: 8px; display: none; }
+  .mode-btn { padding: 10px 20px; margin-right: 10px; background-color: white; border: 1px solid #ced4da; border-radius: 20px; cursor: pointer; font-size: 15px; font-weight: bold; transition: all 0.2s; }
+  .mode-btn:hover { background-color: #e2e6ea; }
+  .mode-btn.active { background-color: #28a745; color: white; border-color: #28a745; }
+
+  .explanation { margin-top: 10px; font-size: 14px; color: #555; background: #fff; padding: 10px; border-radius: 4px; border-left: 4px solid #28a745; }
+
+  table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+  th, td { border: 1px solid #ddd; padding: 10px; text-align: left; vertical-align: middle; font-size: 14px;}
+  th { background-color: #f8f9fa; }
+  .rank-col { width: 50px; text-align: center; }
+  .score-col { width: 80px; text-align: center; font-weight: bold; }
+  .highlight-col { background-color: #fff3cd; }
+
+  .chart-col { width: 600px; text-align: center; }
+  .chart-container { display: flex; justify-content: center; gap: 10px; margin-top: 10px; }
+  .chart-wrapper { width: 280px; height: 280px; }
+  #welcome-msg { color: #666; font-size: 18px; }
+  .toggle-btn { padding: 6px 12px; background-color: #6c757d; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 13px; margin-bottom: 5px; }
+  .toggle-btn:hover { background-color: #5a6268; }
+  .hidden-chart { display: none; }
+</style>
+</head>
+<body>
+
+<div id="sidebar">
+  <h2>基準大学を選択</h2>
+  <div id="btn-container"></div>
+</div>
+
+<div id="main">
+  <div id="welcome-msg">左のリストから基準となる大学を選択してください。</div>
+
+  <div id="mode-controls" class="mode-controls">
+    <div>
+      <button class="mode-btn active" data-mode="plan1">案1: 知識が似ていて、汎用スキルを補完</button>
+      <button class="mode-btn" data-mode="plan2">案2: 汎用スキルの類似度が低い</button>
+      <button class="mode-btn" data-mode="plan3">案3: 理想ベクトルからのギャップ補完</button>
+    </div>
+    <div id="mode-explanation" class="explanation"></div>
+    <div style="margin-top: 15px;">
+      <span>類似度の指標：</span>
+      <select id="similarity-metric" style="padding: 5px; font-size: 14px; border-radius: 4px; border: 1px solid #ccc; margin-right: 15px;">
+        <option value="cosine">コサイン類似度</option>
+        <option value="tanimoto">谷本係数</option>
+      </select>
+    </div>
+  </div>
+
+  <div id="content"></div>
+</div>
+
+<script>
+  const rankingData = {"【中部大学】": [{"target": "【九州大学】", "sim_A": 0.8965458980797895, "sim_A_tanimoto": 0.8117176814470979, "sim_B": 0.993844586902738, "sim_B_tanimoto": 0.9813366407819306, "gap_score_cosine": 0.7249287754053375, "gap_score_tanimoto": 0.5535741789438564}, {"target": "【名古屋大学】", "sim_A": 0.9437853698280397, "sim_A_tanimoto": 0.8850973352941355, "sim_B": 0.9927710027271195, "sim_B_tanimoto": 0.976259118469424, "gap_score_cosine": 0.7135748123196951, "gap_score_tanimoto": 0.5374857884912794}], "【九州大学】": [{"target": "【中部大学】", "sim_A": 0.8965458980797895, "sim_A_tanimoto": 0.8117176814470979, "sim_B": 0.993844586902738, "sim_B_tanimoto": 0.9813366407819306, "gap_score_cosine": 0.7692956207610505, "gap_score_tanimoto": 0.6078188758198101}, {"target": "【名古屋大学】", "sim_A": 0.9607031250002468, "sim_A_tanimoto": 0.9089252782645739, "sim_B": 0.9981719539397019, "sim_B_tanimoto": 0.9960560691164755, "gap_score_cosine": 0.7171649368143682, "gap_score_tanimoto": 0.52552772986024}], "【名古屋大学】": [{"target": "【中部大学】", "sim_A": 0.9437853698280397, "sim_A_tanimoto": 0.8850973352941355, "sim_B": 0.9927710027271195, "sim_B_tanimoto": 0.976259118469424, "gap_score_cosine": 0.7692699641299432, "gap_score_tanimoto": 0.6044417670036665}, {"target": "【九州大学】", "sim_A": 0.9607031250002468, "sim_A_tanimoto": 0.9089252782645739, "sim_B": 0.9981719539397019, "sim_B_tanimoto": 0.9960560691164755, "gap_score_cosine": 0.7284667022867239, "gap_score_tanimoto": 0.5381344768865804}]};
+  const radarData = {"【中部大学】": {"values_A": [0.9393620039682541, 0.7646465277777779, 0.327646626984127, 1.3490550595238096, 0.7379671626984127, 0.9871944444444445, 0.6586012896825397, 0.48911706349206346, 0.370686507936508, 0.09810724206349207, 0.7211158730158731, 0.2703338293650794], "values_B": [1.9581933531746032, 2.319017956349206, 1.4476064484126985, 0.9338015873015872, 2.0708299603174605, 1.911251488095238, 1.0244636904761906, 0.6544358134920635, 1.6775983134920633, 1.3898982142857144, 0.6885457341269842, 0.8596818452380952]}, "【九州大学】": {"values_A": [0.4221984676434677, 0.46572398046398045, 0.20689397435897436, 0.9450825071225071, 0.5564183821733821, 1.6842925518925518, 0.500655522995523, 0.5868737464387463, 0.5382261172161172, 0.21365564102564102, 1.1564637362637362, 0.07014552706552707], "values_B": [1.635443258038258, 2.3951492551892555, 1.4089892836792837, 0.861508431013431, 1.8861510073260073, 1.9682987382987382, 0.9053402096052097, 0.5992200203500203, 1.3784613980463982, 1.0710787952787952, 0.593055522995523, 0.5299057020757021]}, "【名古屋大学】": {"values_A": [0.41184000000000004, 0.62846, 0.11773, 1.13413, 0.58243, 1.40952, 0.5518799999999999, 0.45200000000000007, 0.31774, 0.23635, 0.56332, 0.04257], "values_B": [1.64624, 2.43794, 1.3603, 0.66356, 1.7113299999999998, 1.9167100000000001, 0.86603, 0.56275, 1.4819499999999999, 1.09607, 0.595, 0.52095]}};
+  const chartLabelsA = [["A-1: Education"], ["A-2: Humanities"], ["A-3: Arts"], ["A-4: Social Sciences,", "Journalism & Informatics"], ["A-5: Business,", "Administration & Law"], ["A-6: Natural Sciences,", "Math & Statistics"], ["A-7: ICT"], ["A-8: Engineering,", "Manufacturing & Construction"], ["A-9: Hardware Operation", "& Material Handling"], ["A-10: Agriculture, Forestry,", "Fisheries & Veterinary"], ["A-11: health & Welfare"], ["A-12: Services"]];
+  const chartLabelsB = [["B-1: Teamwork &", "Communication"], ["B-2: Critical &", "Logical Thinking"], ["B-3: Language &", "Global Competence"], ["B-4: Ethics"], ["B-5: Self-Management", "& Autonomous Growth"], ["B-6: Problem Solving"], ["B-7: Adaptability"], ["B-8: Creativity"], ["B-9: Expressiveness", "& Presentation"], ["B-10: Info Processing", "& Digital Literacy"], ["B-11: Computer skills"], ["B-12: Leadership &", "Management"]];
+
+  const btnContainer = document.getElementById('btn-container');
+  const contentDiv = document.getElementById('content');
+  const welcomeMsg = document.getElementById('welcome-msg');
+  const modeControls = document.getElementById('mode-controls');
+  const modeBtns = document.querySelectorAll('.mode-btn');
+  const modeExplanation = document.getElementById('mode-explanation');
+  const simMetric = document.getElementById('similarity-metric');
+
+  simMetric.addEventListener('change', () => { if (currentDept) renderRanking(); });
+  let chartInstances = [];
+  let currentDept = null;
+  let currentMode = 'plan1'; 
+
+  const modeTexts = {
+      'plan1': '【案1】知識（Aグループ）の類似度が上位30%の大学の中で、汎用スキル（Bグループ）の類似度が低い順（昇順）にランキングします。',
+      'plan2': '【案2】汎用スキル（Bグループ）の類似度が単純に低い順（昇順）にランキングします。まったく違う傾向のスキルを持つ大学を探せます。',
+      'plan3': '【案3】理想ベクトル（全汎用スキル3.0）と現在のベクトルの「ギャップ」を算出し、そのギャップを相手の大学がどれくらい一致しているか（選択した指標のスコア）が大きい順（降順）にランキングします。'
+  };
+
+  const allDepts = Object.keys(rankingData);
+  const buttons = [];
+
+  allDepts.forEach(dept => {
+    const btn = document.createElement('button');
+    btn.className = 'dept-btn';
+    btn.textContent = dept;
+
+    btn.onclick = (e) => {
+      document.querySelectorAll('.dept-btn').forEach(b => b.classList.remove('active'));
+      e.target.classList.add('active');
+      currentDept = dept;
+      welcomeMsg.style.display = 'none';
+      modeControls.style.display = 'block'; 
+      modeExplanation.innerText = modeTexts[currentMode];
+      renderRanking(); 
+    };
+    btnContainer.appendChild(btn);
+    buttons.push(btn);
+  });
+
+  modeBtns.forEach(btn => {
+    btn.onclick = (e) => {
+      modeBtns.forEach(b => b.classList.remove('active'));
+      e.target.classList.add('active');
+      currentMode = e.target.getAttribute('data-mode');
+      modeExplanation.innerText = modeTexts[currentMode];
+      if (currentDept) renderRanking(); 
+    };
+  });
+
+  function renderRanking() {
+    chartInstances.forEach(chart => chart.destroy());
+    chartInstances = [];
+
+    let data = [...rankingData[currentDept]];
+
+    const metric = simMetric.value;
+    const key_A = metric === 'cosine' ? 'sim_A' : 'sim_A_tanimoto';
+    const key_B = metric === 'cosine' ? 'sim_B' : 'sim_B_tanimoto';
+    const key_gap = metric === 'cosine' ? 'gap_score_cosine' : 'gap_score_tanimoto';
+
+    if (currentMode === 'plan1') {
+        data.sort((a, b) => b[key_A] - a[key_A]);
+        const cutoff = Math.max(10, Math.floor(data.length * 0.3));
+        data = data.slice(0, cutoff);
+        data.sort((a, b) => a[key_B] - b[key_B]);
+    } else if (currentMode === 'plan2') {
+        data.sort((a, b) => a[key_B] - b[key_B]);
+    } else if (currentMode === 'plan3') {
+        data.sort((a, b) => b[key_gap] - a[key_gap]);
+    }
+
+    const getClass = (key) => {
+        if (currentMode === 'plan1' && (key === key_B || key === key_A)) return 'score-col highlight-col';
+        if (currentMode === 'plan2' && key === key_B) return 'score-col highlight-col';
+        if (currentMode === 'plan3' && key === key_gap) return 'score-col highlight-col';
+        return 'score-col';
+    };
+
+    let html = `<h1>「${currentDept}」のスキル補完ランキング</h1>`;
+    html += `
+      <table>
+        <thead>
+          <tr>
+            <th class="rank-col">順位</th>
+            <th>補完大学</th>
+            <th class="${getClass(key_A)}">知識(A)<br>類似度</th>
+            <th class="${getClass(key_B)}">汎用(B)<br>類似度</th>
+            <th class="${getClass(key_gap)}">ギャップ<br>補完ｽｺｱ</th>
+            <th class="chart-col">レーダーチャート (青: 基準, 赤: 補完候補)</th>
+          </tr>
+        </thead>
+        <tbody>
+    `;
+
+    data.forEach((item, index) => {
+      html += `
+        <tr>
+          <td class="rank-col">${index + 1}</td>
+          <td>${item.target}</td>
+          <td class="${getClass(key_A)}">${item[key_A].toFixed(3)}</td>
+          <td class="${getClass(key_B)}">${item[key_B].toFixed(3)}</td>
+          <td class="${getClass(key_gap)}">${item[key_gap].toFixed(3)}</td>
+          <td class="chart-col">
+            <button class="toggle-btn" onclick="toggleChart('chart-wrap-${index}', 'chartA-${index}', 'chartB-${index}')">グラフを表示 / 非表示</button>
+            <div id="chart-wrap-${index}" class="hidden-chart">
+              <div class="chart-container">
+                <div class="chart-wrapper">
+                  <h3 style="text-align: center; font-size: 12px; margin: 0;">(A) 知識関連</h3>
+                  <canvas id="chartA-${index}"></canvas>
+                </div>
+                <div class="chart-wrapper">
+                  <h3 style="text-align: center; font-size: 12px; margin: 0;">(B) 汎用スキル</h3>
+                  <canvas id="chartB-${index}"></canvas>
+                </div>
+              </div>
+            </div>
+          </td>
+        </tr>
+      `;
+    });
+
+    html += `</tbody></table>`;
+    contentDiv.innerHTML = html;
+
+    data.forEach((item, index) => {
+      const compDeptKey = item.target; 
+      const targetValuesA = radarData[currentDept] ? radarData[currentDept].values_A : [];
+      const compValuesA = radarData[compDeptKey] ? radarData[compDeptKey].values_A : [];
+      const targetValuesB = radarData[currentDept] ? radarData[currentDept].values_B : [];
+      const compValuesB = radarData[compDeptKey] ? radarData[compDeptKey].values_B : [];
+
+      const renderRadar = (ctxId, labels, data1, data2) => {
+          const ctx = document.getElementById(ctxId).getContext('2d');
+          const chart = new Chart(ctx, {
+              type: 'radar',
+              data: {
+                  labels: labels,
+                  datasets: [
+                      { label: currentDept, data: data1, backgroundColor: 'rgba(54, 162, 235, 0.2)', borderColor: 'rgba(54, 162, 235, 1)', borderWidth: 1, pointRadius: 2 },
+                      { label: compDeptKey, data: data2, backgroundColor: 'rgba(255, 99, 132, 0.2)', borderColor: 'rgba(255, 99, 132, 1)', borderWidth: 1, pointRadius: 2 }
+                  ]
+              },
+              options: {
+                  responsive: true, maintainAspectRatio: false,
+                  scales: { r: { min: 0, max: 3, ticks: { stepSize: 1, display: false }, pointLabels: { font: { size: 9 }, color: '#666' } } },
+                  plugins: { legend: { display: false } }
+              }
+          });
+          chartInstances.push(chart);
+      };
+
+      renderRadar(`chartA-${index}`, chartLabelsA, targetValuesA, compValuesA);
+      renderRadar(`chartB-${index}`, chartLabelsB, targetValuesB, compValuesB);
+    });
+  }
+
+  window.toggleChart = function(wrapId, chartAId, chartBId) {
+    const wrap = document.getElementById(wrapId);
+    if (wrap.classList.contains('hidden-chart')) {
+      wrap.classList.remove('hidden-chart');
+      const chartInstanceA = Chart.getChart(chartAId);
+      if (chartInstanceA) chartInstanceA.resize();
+      const chartInstanceB = Chart.getChart(chartBId);
+      if (chartInstanceB) chartInstanceB.resize();
+    } else {
+      wrap.classList.add('hidden-chart');
+    }
+  }
+</script>
+</body>
+</html>

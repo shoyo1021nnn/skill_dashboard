@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>Overall Skill Balance Comparison</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            font-family: 'Helvetica Neue', Arial, 'Hiragino Kaku Gothic ProN', 'Hiragino Sans', Meiryo, sans-serif;
+            background-color: #f4f6f9;
+            margin: 0;
+            padding: 40px 20px;
+            color: #333;
+        }
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: #ffffff;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+        }
+        h1 {
+            text-align: center;
+            font-size: 24px;
+            color: #2c3e50;
+            margin-bottom: 30px;
+        }
+        .selectors {
+            display: flex;
+            justify-content: center;
+            gap: 40px;
+            margin-bottom: 40px;
+        }
+        .select-box {
+            display: flex;
+            flex-direction: column;
+            width: 400px;
+        }
+        label {
+            font-weight: bold;
+            margin-bottom: 8px;
+            color: #4a5568;
+            font-size: 14px;
+        }
+        select {
+            padding: 12px;
+            font-size: 15px;
+            border: 1px solid #cbd5e1;
+            border-radius: 6px;
+            background-color: #fff;
+            cursor: pointer;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+        select:focus {
+            border-color: #3b82f6;
+        }
+        .chart-container {
+            display: flex;
+            justify-content: space-between;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+        .chart-wrapper {
+            position: relative;
+            flex: 1;
+            min-width: 500px;
+            height: 600px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>Overall Skill Balance Comparison</h1>
+
+    <div class="selectors">
+        <div class="select-box">
+            <label for="univ1">大学 1 (青)</label>
+            <select id="univ1" style="margin-bottom: 15px;">
+                <option value="all">すべて</option>
+                <option value="名古屋大学">名古屋大学</option>
+                <option value="九州大学">九州大学</option>
+                <option value="中部大学">中部大学</option>
+            </select>
+            <label for="dept1">学部・学科 1 (青)</label>
+            <select id="dept1"></select>
+        </div>
+        <div class="select-box">
+            <label for="univ2">大学 2 (赤)</label>
+            <select id="univ2" style="margin-bottom: 15px;">
+                <option value="all">すべて</option>
+                <option value="名古屋大学">名古屋大学</option>
+                <option value="九州大学">九州大学</option>
+                <option value="中部大学">中部大学</option>
+            </select>
+            <label for="dept2">学部・学科 2 (赤)</label>
+            <select id="dept2"></select>
+        </div>
+    </div>
+
+    <div class="chart-container">
+        <div class="chart-wrapper">
+            <canvas id="radarChartA"></canvas>
+        </div>
+        <div class="chart-wrapper">
+            <canvas id="radarChartB"></canvas>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Python側からデータを流し込む
+    const labelsA = ["A-1: Education", "A-2: Humanities", "A-3: Arts", "A-4: Social Sciences, Journalism & Informatics", "A-5: Business, Administration & Law", "A-6: Natural Sciences, Math & Statistics", "A-7: ICT", "A-8: Engineering, Manufacturing & Construction", "A-9: Hardware Operation & Material Handling", "A-10: Agriculture, Forestry, Fisheries & Veterinary", "A-11: health & Welfare", "A-12: Services"];
+    const labelsB = ["B-1: Teamwork & Communication", "B-2: Critical & Logical Thinking", "B-3: Language & Global Competence", "B-4: Ethics", "B-5: Self-Management & Autonomous Growth", "B-6: Problem Solving", "B-7: Adaptability", "B-8: Creativity", "B-9: Expressiveness & Presentation", "B-10: Info Processing & Digital Literacy", "B-11: Computer skills", "B-12: Leadership & Management"];
+    const dataDict = {"[名古屋大学] 全学教育科目": {"subjects": 0, "values_A": [0.3853, 0.8769, 0.1904, 0.8336, 0.2506, 0.9071, 0.3928, 0.2191, 0.2532, 0.063, 0.4309, 0.1455], "values_B": [2.0081, 1.9991, 2.083, 0.596, 1.9487, 1.493, 1.1325, 0.5716, 1.873, 0.8448, 0.5143, 0.4357]}, "[名古屋大学] 医学部保健学科": {"subjects": 0, "values_A": [0.346, 0.1472, 0.0368, 0.5868, 0.2892, 1.6835, 0.571, 0.4637, 0.9096, 0.0158, 2.8559, 0.0936], "values_B": [1.7413, 2.1388, 0.9863, 1.2587, 1.8528, 1.9716, 1.0505, 0.3018, 1.2029, 1.1009, 0.6414, 0.5489]}, "[名古屋大学] 工学部": {"subjects": 0, "values_A": [0.0126, 0.0798, 0.1081, 0.1921, 0.1276, 2.3102, 0.4814, 2.0352, 0.5706, 0.0079, 0.1554, 0.0152], "values_B": [0.8441, 2.2063, 0.673, 0.2178, 1.4499, 2.0819, 0.5354, 0.5213, 0.8756, 0.8005, 0.5297, 0.2241]}, "[名古屋大学] 情報学部": {"subjects": 0, "values_A": [0.1258, 0.35, 0.1348, 1.3455, 0.1288, 1.7712, 1.703, 0.4561, 0.1121, 0.0424, 0.2833, 0.0258], "values_B": [1.1697, 2.6348, 0.7348, 0.4273, 1.4288, 2.2727, 0.7742, 0.7439, 1.0167, 1.7833, 1.4545, 0.2955]}, "[名古屋大学] 教育学部": {"subjects": 0, "values_A": [2.4137, 0.8629, 0.0898, 2.208, 0.5012, 0.5106, 0.7305, 0.0922, 0.1608, 0.0544, 0.8487, 0.0213], "values_B": [2.2009, 2.6407, 1.5319, 1.227, 1.9433, 1.9102, 1.0898, 0.7518, 1.8156, 1.4728, 0.7494, 0.948]}, "[名古屋大学] 文学部": {"subjects": 0, "values_A": [0.4427, 2.4968, 0.5389, 1.0684, 0.1206, 0.2352, 0.23, 0.0722, 0.1349, 0.0188, 0.1248, 0.0466], "values_B": [1.8681, 2.5509, 2.2495, 0.6201, 1.8151, 1.5291, 0.8745, 0.6144, 1.8561, 0.9876, 0.3003, 0.4558]}, "[名古屋大学] 法学部": {"subjects": 0, "values_A": [0.1475, 1.0088, 0.0103, 2.0413, 2.4344, 0.1777, 0.2972, 0.0037, 0.0088, 0.0, 0.2212, 0.0155], "values_B": [2.2987, 2.8628, 2.0428, 1.2979, 1.9417, 1.9676, 1.0649, 0.5833, 2.0819, 1.1327, 0.4521, 0.8105]}, "[名古屋大学] 理学部": {"subjects": 0, "values_A": [0.118, 0.0377, 0.0206, 0.0768, 0.0284, 2.9389, 0.4243, 0.4982, 0.5295, 0.1322, 0.236, 0.0078], "values_B": [1.0917, 2.3895, 0.8977, 0.1734, 1.624, 1.9922, 0.683, 0.4563, 1.0803, 0.8394, 0.5217, 0.2338]}, "[名古屋大学] 経済学部": {"subjects": 0, "values_A": [0.0686, 0.3317, 0.0096, 2.6555, 1.6818, 0.9769, 0.315, 0.0622, 0.0247, 0.0167, 0.071, 0.0399], "values_B": [2.1738, 2.7552, 1.508, 0.4203, 1.8014, 2.1938, 0.9242, 0.6435, 2.0263, 1.2392, 0.4298, 0.9809]}, "[名古屋大学] 農学部": {"subjects": 0, "values_A": [0.0582, 0.0928, 0.038, 0.3333, 0.2617, 2.5839, 0.3736, 0.6174, 0.4732, 2.0123, 0.406, 0.0145], "values_B": [1.066, 2.2013, 0.896, 0.3971, 1.3076, 1.755, 0.5313, 0.4396, 0.9911, 0.7595, 0.3568, 0.2763]}};
+
+    const dept1Select = document.getElementById('dept1');
+    const dept2Select = document.getElementById('dept2');
+    const univ1Select = document.getElementById('univ1');
+    const univ2Select = document.getElementById('univ2');
+
+    const allDepts = Object.keys(dataDict).sort();
+
+    function populateDept(deptSelect, univFilter, defaultIndex) {
+        const currentVal = deptSelect.value;
+        deptSelect.innerHTML = '';
+        let matchedDepts = allDepts;
+        if (univFilter !== 'all') {
+            matchedDepts = allDepts.filter(dept => dept.includes(`[${univFilter}]`));
+        }
+
+        let foundCurrent = false;
+        matchedDepts.forEach((dept, idx) => {
+            const subjectsInfo = dataDict[dept].subjects > 0 ? ` (Subjects: ${dataDict[dept].subjects})` : "";
+            const text = `${dept}${subjectsInfo}`;
+            const opt = document.createElement('option');
+            opt.value = dept;
+            opt.textContent = text;
+            deptSelect.appendChild(opt);
+
+            if (currentVal === dept) {
+                opt.selected = true;
+                foundCurrent = true;
+            }
+        });
+
+        if (!foundCurrent && matchedDepts.length > 0) {
+            if (defaultIndex < matchedDepts.length) {
+                deptSelect.selectedIndex = defaultIndex;
+            } else {
+                deptSelect.selectedIndex = 0;
+            }
+        }
+    }
+
+    univ1Select.addEventListener('change', () => {
+        populateDept(dept1Select, univ1Select.value, 0);
+        updateChart();
+    });
+
+    univ2Select.addEventListener('change', () => {
+        populateDept(dept2Select, univ2Select.value, 0);
+        updateChart();
+    });
+
+    // Initialize
+    populateDept(dept1Select, 'all', 0);
+    populateDept(dept2Select, 'all', 1);
+
+    const commonOptions = {
+        responsive: true,
+        maintainAspectRatio: false,
+        layout: {
+            padding: 30
+        },
+        scales: {
+            r: {
+                min: 0,
+                max: 3,
+                ticks: {
+                    stepSize: 0.5,
+                    backdropColor: 'transparent'
+                },
+                pointLabels: {
+                    font: {
+                        size: 11,
+                        weight: 'bold'
+                    },
+                    color: '#475569',
+                    callback: function(value) {
+                        if (typeof value !== 'string') return value;
+                        const maxLength = 15;
+                        const lines = value.split('\n
+');
+                        const result = [];
+                        lines.forEach(line => {
+                            if (line.length <= maxLength) {
+                                result.push(line);
+                            } else {
+                                const words = line.split(' ');
+                                let currentLine = '';
+                                words.forEach(w => {
+                                    if ((currentLine + w).length > maxLength && currentLine.length > 0) {
+                                        result.push(currentLine);
+                                        currentLine = w;
+                                    } else {
+                                        currentLine = currentLine ? currentLine + ' ' + w : w;
+                                    }
+                                });
+                                if (currentLine) result.push(currentLine);
+                            }
+                        });
+                        return result;
+                    }
+                }
+            }
+        },
+        plugins: {
+            legend: {
+                position: 'top',
+                labels: {
+                    font: {
+                        size: 14,
+                        weight: 'bold'
+                    }
+                }
+            }
+        }
+    };
+
+    function createDataset(label, colorRGB) {
+        return {
+            label: label,
+            data: [],
+            backgroundColor: `rgba(${colorRGB}, 0.2)`,
+            borderColor: `rgba(${colorRGB}, 1)`,
+            borderWidth: 2,
+            pointBackgroundColor: `rgba(${colorRGB}, 1)`,
+            pointHoverBackgroundColor: '#fff',
+            pointHoverBorderColor: `rgba(${colorRGB}, 1)`
+        };
+    }
+
+    const ctxA = document.getElementById('radarChartA').getContext('2d');
+    const radarChartA = new Chart(ctxA, {
+        type: 'radar',
+        data: {
+            labels: labelsA,
+            datasets: [
+                createDataset('', '54, 162, 235'),
+                createDataset('', '255, 99, 132')
+            ]
+        },
+        options: {
+            ...commonOptions,
+            plugins: {
+                ...commonOptions.plugins,
+                title: {
+                    display: true,
+                    text: '知識関連スキル (A-1〜A-12)',
+                    font: { size: 18 }
+                }
+            }
+        }
+    });
+
+    const ctxB = document.getElementById('radarChartB').getContext('2d');
+    const radarChartB = new Chart(ctxB, {
+        type: 'radar',
+        data: {
+            labels: labelsB,
+            datasets: [
+                createDataset('', '54, 162, 235'),
+                createDataset('', '255, 99, 132')
+            ]
+        },
+        options: {
+            ...commonOptions,
+            plugins: {
+                ...commonOptions.plugins,
+                title: {
+                    display: true,
+                    text: '汎用スキル関連 (B-1〜B-12)',
+                    font: { size: 18 }
+                }
+            }
+        }
+    });
+
+    function updateChart() {
+        const val1 = dept1Select.value;
+        const val2 = dept2Select.value;
+
+        if (dataDict[val1]) {
+            const subjectsInfo = dataDict[val1].subjects > 0 ? ` (${dataDict[val1].subjects} sub)` : "";
+            radarChartA.data.datasets[0].label = `${val1}${subjectsInfo}`;
+            radarChartA.data.datasets[0].data = dataDict[val1].values_A;
+            radarChartB.data.datasets[0].label = `${val1}${subjectsInfo}`;
+            radarChartB.data.datasets[0].data = dataDict[val1].values_B;
+        }
+        if (dataDict[val2]) {
+            const subjectsInfo = dataDict[val2].subjects > 0 ? ` (${dataDict[val2].subjects} sub)` : "";
+            radarChartA.data.datasets[1].label = `${val2}${subjectsInfo}`;
+            radarChartA.data.datasets[1].data = dataDict[val2].values_A;
+            radarChartB.data.datasets[1].label = `${val2}${subjectsInfo}`;
+            radarChartB.data.datasets[1].data = dataDict[val2].values_B;
+        }
+        radarChartA.update();
+        radarChartB.update();
+    }
+
+    dept1Select.addEventListener('change', updateChart);
+    dept2Select.addEventListener('change', updateChart);
+
+    updateChart();
+</script>
+
+</body>
+</html>

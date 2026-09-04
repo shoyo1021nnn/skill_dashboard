@@ -1,0 +1,38 @@
+department,major,skill_en,weight
+経済学部,,A-1: Education,0.11752136752136752
+経済学部,,"B-12: Leadership &
+Management",0.9551282051282052
+経済学部,,B-11: Computer skills,0.7670940170940171
+経済学部,,"B-10: Info Processing
+& Digital Literacy",1.4123931623931625
+経済学部,,"B-9: Expressiveness
+& Presentation",1.5854700854700854
+経済学部,,B-8: Creativity,0.5064102564102564
+経済学部,,B-7: Adaptability,0.9572649572649573
+経済学部,,B-6: Problem Solving,1.920940170940171
+経済学部,,"B-5: Self-Management
+& Autonomous Growth",1.8675213675213675
+経済学部,,B-4: Ethics,0.43162393162393164
+経済学部,,"B-3: Language &
+Global Competence",1.6752136752136753
+経済学部,,"B-2: Critical &
+Logical Thinking",2.7243589743589745
+経済学部,,"B-1: Teamwork &
+Communication",1.8675213675213675
+経済学部,,A-12: Services,0.04487179487179487
+経済学部,,A-11: health & Welfare,0.08974358974358974
+経済学部,,"A-10: Agriculture, Forestry,
+Fisheries & Veterinary",0.029914529914529916
+経済学部,,"A-9: Hardware Operation
+& Material Handling",0.03205128205128205
+経済学部,,"A-8: Engineering,
+Manufacturing & Construction",0.1047008547008547
+経済学部,,A-7: ICT,0.6132478632478633
+経済学部,,"A-6: Natural Sciences,
+Math & Statistics",1.3653846153846154
+経済学部,,"A-5: Business,
+Administration & Law",1.4508547008547008
+経済学部,,"A-4: Social Sciences,
+Journalism & Informatics",2.5085470085470085
+経済学部,,A-3: Arts,0.023504273504273504
+経済学部,,A-2: Humanities,0.36324786324786323

@@ -1,0 +1,487 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ドリームチーム編成（しきい値探索）</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+  body { font-family: sans-serif; margin: 0; padding: 0; display: flex; height: 100vh; color: #333; }
+  #sidebar { width: 280px; background-color: #f4f4f4; border-right: 1px solid #ccc; padding: 20px; overflow-y: auto; flex-shrink: 0; }
+  #sidebar h2 { font-size: 16px; margin-top: 0; border-bottom: 1px solid #ccc; padding-bottom: 10px; }
+  .dept-btn { display: block; width: 100%; padding: 8px 10px; margin-bottom: 5px; background-color: white; border: 1px solid #ccc; border-radius: 4px; cursor: pointer; text-align: left; font-size: 14px; }
+  .dept-btn:hover { background-color: #e9e9e9; }
+  .dept-btn.active { background-color: #007bff; color: white; border-color: #007bff; }
+  #main { flex-grow: 1; padding: 30px; overflow-y: auto; }
+  h1 { font-size: 24px; border-bottom: 2px solid #007bff; padding-bottom: 10px; margin-bottom: 20px; }
+  
+  .mode-controls { margin-bottom: 20px; padding: 15px; background-color: #e9ecef; border-radius: 8px; display: none; }
+  .control-group { margin-bottom: 12px; display: flex; align-items: center; gap: 10px; font-size: 14px; }
+  .control-group span { font-weight: bold; width: 150px; }
+  .control-select { padding: 5px 10px; font-size: 14px; border-radius: 4px; border: 1px solid #ccc; width: 220px; }
+
+  .explanation { margin-top: 10px; font-size: 14px; color: #555; background: #fff; padding: 10px; border-radius: 4px; border-left: 4px solid #28a745; }
+  .stop-reason { margin-top: 10px; font-size: 14px; color: #721c24; background: #f8d7da; padding: 10px; border-radius: 4px; border-left: 4px solid #f5c6cb; font-weight: bold; }
+
+  .step-card { border: 1px solid #ddd; border-radius: 8px; margin-bottom: 20px; background-color: #fff; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+  .step-header { background-color: #f8f9fa; padding: 15px; border-bottom: 1px solid #ddd; border-radius: 8px 8px 0 0; display: flex; justify-content: space-between; align-items: center; }
+  .step-title { font-size: 18px; font-weight: bold; color: #007bff; }
+  .step-stats { font-size: 14px; display: flex; gap: 15px; }
+  .stat-badge { background-color: #e9ecef; padding: 4px 8px; border-radius: 4px; font-weight: bold; }
+  .stat-highlight { background-color: #d4edda; color: #155724; }
+  
+  .step-body { padding: 20px; display: flex; gap: 20px; align-items: flex-start; }
+  .step-info { flex: 1; }
+  .added-dept { font-size: 20px; font-weight: bold; margin-bottom: 10px; }
+  
+  table.mini-table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+  table.mini-table th, table.mini-table td { border: 1px solid #ddd; padding: 8px; text-align: left; font-size: 13px; }
+  table.mini-table th { background-color: #f8f9fa; width: 120px; }
+  
+  .chart-container { display: flex; gap: 10px; }
+  .chart-wrapper { width: 300px; height: 300px; }
+  
+  #welcome-msg { color: #666; font-size: 18px; }
+  .team-summary { margin-top: 20px; padding: 15px; background-color: #cce5ff; border: 1px solid #b8daff; border-radius: 8px; }
+</style>
+</head>
+<body>
+
+<div id="sidebar">
+  <h2>基準学科を選択</h2>
+  <select id="univ-filter" style="width: 100%; margin-bottom: 10px; padding: 5px; font-size: 14px; border-radius: 4px; border: 1px solid #ccc;">
+    <option value="all">すべての大学</option>
+  </select>
+  <div id="btn-container"></div>
+</div>
+
+<div id="main">
+  <div id="welcome-msg">左のリストから基準となる学科（初期メンバー）を選択してください。</div>
+  
+  <div id="mode-controls" class="mode-controls">
+    <div class="control-group">
+      <span>探索モード:</span>
+      <select id="search-mode" class="control-select">
+        <option value="fixed">【人数指定モード】(N人追加)</option>
+        <option value="threshold" selected>【しきい値目標モード】(X%達成)</option>
+      </select>
+    </div>
+    <div class="control-group" id="team-size-group" style="display: none;">
+      <span>チーム拡張人数:</span>
+      <select id="team-size" class="control-select">
+        <option value="1">+1人 (合計2学科)</option>
+        <option value="2">+2人 (合計3学科)</option>
+        <option value="3" selected>+3人 (合計4学科)</option>
+        <option value="4">+4人 (合計5学科)</option>
+        <option value="5">+5人 (合計6学科)</option>
+      </select>
+    </div>
+    <div class="control-group" id="threshold-group">
+      <span>目標カバー率:</span>
+      <select id="target-threshold" class="control-select">
+        <option value="0.80">80%</option>
+        <option value="0.85">85%</option>
+        <option value="0.90" selected>90%</option>
+        <option value="0.95">95%</option>
+        <option value="1.00">100%</option>
+      </select>
+    </div>
+    <div class="control-group">
+      <span>ベクトル結合方法:</span>
+      <select id="combine-method" class="control-select">
+        <option value="mean">平均値 (average)</option>
+        <option value="max" selected>最大値 (maximum)</option>
+      </select>
+    </div>
+    <div class="control-group">
+      <span>探索時の評価指標:</span>
+      <select id="similarity-metric" class="control-select">
+        <option value="coverage">カバー率 (理想-現在のギャップ)</option>
+        <option value="cosine">コサイン類似度 (対ギャップ)</option>
+        <option value="tanimoto">谷本係数 (対ギャップ)</option>
+      </select>
+    </div>
+    <div class="control-group">
+      <span>追加候補の範囲:</span>
+      <select id="target-filter" class="control-select">
+        <option value="all">すべての大学</option>
+        <option value="same">同じ大学の学部のみ</option>
+        <option value="diff">同じ大学の学部を除く</option>
+      </select>
+    </div>
+    <div id="mode-explanation" class="explanation"></div>
+  </div>
+  
+  <div id="content"></div>
+</div>
+
+<script>
+  const radarData = {"【九州大学】 共創学部": {"values_A": [0.301, 1.0493, 0.1956, 1.5153, 0.3163, 1.3537, 0.5799, 0.3112, 0.3027, 0.1429, 0.4677, 0.0493], "values_B": [2.0816, 2.5731, 2.2041, 0.8537, 1.8707, 2.0068, 1.0425, 0.8588, 1.7721, 1.3776, 0.716, 0.699]}, "【九州大学】 教育学部": {"values_A": [2.8126, 1.0654, 0.1351, 2.0087, 0.5686, 0.3791, 0.4728, 0.0588, 0.0654, 0.0545, 1.0588, 0.0959], "values_B": [2.3769, 2.5316, 1.6797, 1.5403, 2.0632, 1.8715, 1.2222, 0.8039, 1.8715, 1.1547, 0.5229, 1.0218]}, "【九州大学】 法学部": {"values_A": [0.1304, 1.1184, 0.0531, 1.9493, 2.6039, 0.0242, 0.1812, 0.0, 0.0072, 0.0, 0.1522, 0.0217], "values_B": [1.872, 2.8164, 2.0966, 1.3937, 1.901, 1.9251, 0.9372, 0.3092, 1.7995, 0.9372, 0.2464, 0.6063]}, "【九州大学】 経済学部": {"values_A": [0.1175, 0.3632, 0.0235, 2.5085, 1.4509, 1.3654, 0.6132, 0.1047, 0.0321, 0.0299, 0.0897, 0.0449], "values_B": [1.8675, 2.7244, 1.6752, 0.4316, 1.8675, 1.9209, 0.9573, 0.5064, 1.5855, 1.4124, 0.7671, 0.9551]}, "【九州大学】 インダストリアルデザインコース": {"values_A": [0.1083, 0.3667, 1.9667, 1.2667, 0.4917, 1.0833, 0.5333, 1.4417, 0.675, 0.0, 1.0833, 0.15], "values_B": [2.1833, 2.4, 1.2, 0.4083, 1.775, 2.4167, 1.15, 2.2083, 2.2083, 1.2167, 0.6667, 0.75]}, "【九州大学】 メディアデザインコース": {"values_A": [0.4228, 0.4959, 2.2439, 1.187, 0.2195, 0.9593, 1.626, 0.9187, 0.748, 0.0, 0.1707, 0.0244], "values_B": [1.9431, 2.0569, 1.4715, 0.252, 1.8211, 2.0244, 1.0244, 2.5203, 2.1382, 1.8293, 1.6748, 0.6667]}, "【九州大学】 動物生産科学コース": {"values_A": [0.0407, 0.0813, 0.0325, 0.2358, 0.1748, 2.6789, 0.3862, 0.5122, 0.8252, 2.5081, 0.5407, 0.0407], "values_B": [1.1057, 2.0325, 0.9756, 0.4187, 1.6463, 1.565, 0.6545, 0.2724, 0.8943, 0.9268, 0.5732, 0.2764]}, "【九州大学】 化学工学科": {"values_A": [0.0, 0.0, 0.0, 0.0652, 0.0942, 2.8913, 0.6087, 2.5507, 0.7101, 0.058, 0.471, 0.0], "values_B": [0.9928, 2.5797, 1.1739, 0.1377, 1.8478, 2.3768, 0.7464, 0.6449, 0.6957, 1.1304, 0.7391, 0.442]}, "【九州大学】 化学科": {"values_A": [0.025, 0.025, 0.0, 0.0417, 0.0, 2.975, 0.35, 0.9667, 0.7667, 0.0, 0.4667, 0.0], "values_B": [0.6167, 2.4667, 0.7833, 0.1917, 1.825, 1.95, 0.5917, 0.3083, 0.4417, 0.9, 0.4167, 0.0333]}, "【九州大学】 医学部保健学科": {"values_A": [0.3353, 0.1744, 0.0155, 0.5601, 0.2849, 1.8023, 0.5252, 0.564, 0.9167, 0.0194, 2.843, 0.1066], "values_B": [1.5678, 2.1376, 1.0039, 1.0329, 1.8198, 1.9147, 0.8953, 0.2132, 0.9981, 1.0678, 0.6609, 0.5078]}, "【九州大学】 放射線技術科学専攻": {"values_A": [0.151, 0.1094, 0.0, 0.2396, 0.2969, 2.3854, 0.7865, 1.0208, 1.1094, 0.0156, 2.6979, 0.0781], "values_B": [1.099, 2.1354, 0.849, 0.7656, 1.7344, 1.7812, 0.6354, 0.1719, 0.6458, 1.3854, 0.9948, 0.2552]}, "【九州大学】 検査技術科学専攻": {"values_A": [0.15, 0.05, 0.0583, 0.2, 0.1917, 2.4083, 0.55, 0.7083, 1.6083, 0.0417, 2.825, 0.0917], "values_B": [1.2333, 2.0917, 0.9583, 0.875, 1.8167, 1.875, 0.7083, 0.1333, 0.925, 1.1417, 0.6167, 0.2917]}, "【九州大学】 看護学専攻": {"values_A": [0.6667, 0.3186, 0.0147, 1.1176, 0.402, 0.9706, 0.2843, 0.0294, 0.3186, 0.0, 2.9951, 0.1569], "values_B": [2.1716, 2.1078, 1.1667, 1.4216, 1.902, 2.0147, 1.2598, 0.2745, 1.3529, 0.7255, 0.3922, 0.8235]}, "【九州大学】 医学科": {"values_A": [0.1899, 0.3038, 0.0717, 0.5148, 0.2278, 2.0717, 0.4473, 0.2743, 0.5654, 0.0295, 2.9451, 0.0675], "values_B": [1.5443, 2.1561, 1.1688, 1.1772, 1.5359, 1.8861, 0.8439, 0.2574, 1.0633, 0.789, 0.4641, 0.3038]}, "【九州大学】 生命科学科": {"values_A": [0.097, 0.2242, 0.0545, 0.2364, 0.0909, 2.3394, 0.4182, 0.1879, 0.5152, 0.0364, 2.7091, 0.0242], "values_B": [1.2424, 2.1091, 1.1636, 0.8909, 1.5636, 1.6788, 0.6909, 0.3515, 0.9939, 0.8303, 0.5515, 0.1455]}, "【九州大学】 土木工学科": {"values_A": [0.0986, 0.2254, 0.108, 0.8638, 0.4836, 2.1127, 0.5352, 2.4836, 0.5211, 0.1596, 0.1784, 0.0845], "values_B": [1.4836, 2.338, 1.2347, 0.615, 1.7746, 2.3052, 0.9671, 0.5728, 1.0939, 1.108, 0.7042, 0.6338]}, "【九州大学】 地球惑星科学科": {"values_A": [0.0565, 0.1243, 0.0226, 0.0847, 0.0, 2.9379, 0.3672, 0.7345, 0.8814, 0.1921, 0.0169, 0.0226], "values_B": [1.0169, 2.435, 0.9209, 0.0678, 1.791, 1.9379, 0.8814, 0.2599, 1.0282, 0.9266, 0.4915, 0.1243]}, "【九州大学】 地球森林科学コース": {"values_A": [0.0896, 0.1045, 0.0796, 0.3731, 0.3085, 2.5075, 0.4776, 1.1244, 0.9751, 2.4677, 0.0896, 0.0149], "values_B": [1.393, 2.1144, 1.4577, 0.2488, 1.5622, 1.7512, 0.6617, 0.4478, 1.0697, 1.0746, 0.6866, 0.4826]}, "【九州大学】 地球資源システム工学科": {"values_A": [0.0926, 0.1111, 0.0, 0.4259, 0.5463, 2.7407, 0.5093, 2.1204, 1.0093, 0.0463, 0.2315, 0.0185], "values_B": [1.1852, 2.3704, 1.037, 0.6111, 1.7222, 2.2778, 0.8241, 0.4259, 0.8981, 1.213, 0.7685, 0.5741]}, "【九州大学】 建築学科": {"values_A": [0.1237, 0.5323, 0.9355, 0.6559, 0.543, 1.3118, 0.4624, 2.8978, 0.4516, 0.0376, 0.2903, 0.0538], "values_B": [1.3871, 2.4409, 1.043, 0.4301, 1.5968, 2.1989, 0.7903, 1.172, 1.3387, 0.914, 0.6398, 0.6452]}, "【九州大学】 応用化学科": {"values_A": [0.0, 0.0, 0.0, 0.0247, 0.037, 2.9877, 0.4444, 1.6296, 0.9383, 0.0, 0.2469, 0.0], "values_B": [0.9753, 2.4568, 0.9383, 0.2469, 1.9259, 2.2222, 0.679, 0.6049, 0.7407, 1.0864, 0.4815, 0.2593]}, "【九州大学】 応用生物科学コース": {"values_A": [0.0505, 0.0303, 0.0, 0.1414, 0.1616, 2.8586, 0.6162, 0.7879, 0.8485, 1.0202, 0.5354, 0.0202], "values_B": [1.0909, 2.2828, 1.0808, 0.4747, 1.9394, 1.8687, 0.6869, 0.3232, 0.8687, 1.4141, 0.8081, 0.2626]}, "【九州大学】 数学科": {"values_A": [0.1014, 0.0338, 0.0, 0.2222, 0.0531, 2.9903, 0.5362, 0.087, 0.0435, 0.0242, 0.0242, 0.0145], "values_B": [0.7391, 2.8406, 0.9662, 0.0531, 1.6618, 2.2657, 0.6908, 0.6087, 0.8454, 0.599, 0.4589, 0.0725]}, "【九州大学】 未来構想デザインコース": {"values_A": [0.4694, 1.0204, 1.8707, 1.0204, 0.2993, 1.0068, 0.8776, 0.6463, 0.585, 0.1224, 0.4014, 0.068], "values_B": [2.0136, 2.2585, 1.517, 0.7687, 1.8299, 2.0884, 1.1156, 2.2517, 2.0612, 1.2993, 0.9116, 0.7211]}, "【九州大学】 材料工学科": {"values_A": [0.0397, 0.0, 0.0794, 0.0476, 0.119, 2.6349, 0.3571, 2.4841, 0.746, 0.0, 0.0714, 0.0], "values_B": [0.7381, 2.2857, 0.8016, 0.119, 1.6349, 2.0714, 0.6111, 0.3651, 0.6746, 0.746, 0.3571, 0.1349]}, "【九州大学】 機械工学科": {"values_A": [0.0472, 0.0383, 0.0767, 0.115, 0.1829, 2.3835, 0.4749, 2.8466, 0.7139, 0.0, 0.1416, 0.0088], "values_B": [0.941, 2.4277, 1.0118, 0.2419, 1.7198, 2.4366, 0.708, 0.646, 0.8171, 0.7611, 0.5811, 0.2035]}, "【九州大学】 歯学部": {"values_A": [0.7246, 0.2754, 0.087, 0.3841, 0.3804, 1.9312, 0.5, 0.4203, 1.2029, 0.0109, 2.9928, 0.058], "values_B": [1.587, 2.1667, 1.0254, 1.5688, 2.0145, 1.9167, 0.8225, 0.3043, 1.2101, 0.913, 0.6014, 0.4348]}, "【九州大学】 物理学科": {"values_A": [0.069, 0.0402, 0.0287, 0.3247, 0.0489, 2.6552, 1.3305, 0.8621, 0.4914, 0.0, 0.0747, 0.0057], "values_B": [0.9626, 2.658, 0.9684, 0.204, 1.9052, 2.3391, 0.9339, 0.4339, 0.8621, 1.4195, 1.1092, 0.2385]}, "【九州大学】 理学部": {"values_A": [0.0782, 0.0645, 0.0391, 0.2317, 0.0499, 2.8016, 0.7761, 0.5709, 0.4976, 0.1232, 0.1808, 0.0127], "values_B": [0.9443, 2.5543, 1.0078, 0.175, 1.783, 2.0987, 0.8055, 0.4164, 0.8983, 1.0821, 0.7625, 0.1691]}, "【九州大学】 環境設計コース": {"values_A": [0.1818, 0.6818, 1.5, 0.7576, 0.4091, 1.1061, 0.447, 2.7273, 0.5076, 0.2273, 0.1818, 0.0455], "values_B": [1.6591, 2.2955, 1.2273, 0.3485, 1.8939, 2.2424, 0.8864, 1.6667, 1.697, 1.1288, 0.75, 0.7879]}, "【九州大学】 生物学科": {"values_A": [0.0667, 0.0083, 0.05, 0.2083, 0.0333, 2.9, 0.675, 0.1833, 0.6333, 0.675, 0.5417, 0.0], "values_B": [1.1917, 2.25, 1.125, 0.3167, 1.7917, 1.7167, 0.8, 0.3833, 1.075, 1.35, 0.9333, 0.1833]}, "【九州大学】 生物資源生産科学コース": {"values_A": [0.0883, 0.1311, 0.0313, 0.7037, 0.5385, 2.2023, 0.5242, 1.0399, 0.6553, 2.2222, 0.1909, 0.0456], "values_B": [1.2308, 2.245, 1.0256, 0.4473, 1.6467, 1.9801, 0.7493, 0.4131, 0.9687, 0.9915, 0.6781, 0.5014]}, "【九州大学】 航空宇宙工学科": {"values_A": [0.0, 0.0101, 0.0707, 0.1212, 0.1515, 2.7778, 0.6667, 2.6566, 0.3939, 0.0, 0.0, 0.0707], "values_B": [1.0707, 2.7273, 1.3737, 0.0707, 1.7879, 2.5556, 0.7778, 0.596, 0.9293, 1.0808, 0.8889, 0.2929]}, "【九州大学】 船舶海洋工学科": {"values_A": [0.0185, 0.0556, 0.1111, 0.2778, 0.3889, 2.3796, 0.4537, 2.6111, 0.5093, 0.0926, 0.0463, 0.1481], "values_B": [0.7963, 2.3981, 0.6852, 0.2222, 1.6852, 2.3796, 0.6667, 0.5278, 0.5556, 0.7593, 0.6296, 0.4074]}, "【九州大学】 芸術工学部": {"values_A": [0.3361, 0.5969, 1.7406, 0.9428, 0.2566, 1.1646, 0.7824, 1.3375, 0.6011, 0.0711, 0.3975, 0.0642], "values_B": [1.8452, 2.2664, 1.3291, 0.4156, 1.8619, 2.1227, 1.0098, 1.8396, 1.8759, 1.318, 0.8996, 0.6527]}, "【九州大学】 薬学部": {"values_A": [0.0581, 0.0703, 0.0183, 0.1804, 0.2538, 2.5046, 0.2141, 0.3333, 0.4343, 0.1009, 2.6147, 0.1315], "values_B": [1.2202, 2.1621, 1.1774, 0.63, 1.8654, 1.893, 0.7095, 0.4006, 0.9878, 0.6086, 0.2446, 0.2966]}, "【九州大学】 創薬科学科": {"values_A": [0.0, 0.0, 0.0, 0.0, 0.0, 3.0, 0.0, 1.0, 2.0, 0.0, 3.0, 0.0], "values_B": [2.0, 3.0, 1.0, 2.0, 3.0, 3.0, 1.0, 1.3333333333333333, 2.0, 1.0, 0.0, 0.6666666666666666]}, "【九州大学】 臨床薬学科": {"values_A": [0.23809523809523808, 0.23809523809523808, 0.0, 0.7777777777777778, 0.9047619047619048, 2.5238095238095237, 0.3968253968253968, 0.1111111111111111, 0.5714285714285714, 0.0, 3.7142857142857144, 0.5555555555555556], "values_B": [2.0634920634920637, 2.9523809523809526, 1.0634920634920635, 1.8095238095238095, 2.2857142857142856, 2.7936507936507935, 1.1746031746031746, 0.4603174603174603, 1.5238095238095237, 1.0158730158730158, 0.3968253968253968, 0.7142857142857143]}, "【九州大学】 融合基礎工学科": {"values_A": [0.0375, 0.0262, 0.0899, 0.3109, 0.1985, 2.5693, 0.6067, 1.9176, 0.7116, 0.0524, 0.1124, 0.0225], "values_B": [0.7228, 2.3221, 0.8914, 0.2172, 1.6629, 2.1273, 0.5918, 0.5019, 0.6367, 0.9251, 0.5768, 0.2097]}, "【九州大学】 農学部": {"values_A": [0.0471, 0.1047, 0.0375, 0.4424, 0.3159, 2.4572, 0.4782, 0.801, 0.7373, 2.363, 0.3264, 0.0288], "values_B": [1.2618, 2.1457, 1.3272, 0.3848, 1.6754, 1.7705, 0.6885, 0.3848, 1.0017, 1.034, 0.6309, 0.3752]}, "【九州大学】 量子物理工学科": {"values_A": [0.058, 0.0217, 0.0217, 0.1304, 0.087, 2.8551, 0.2391, 1.529, 0.4493, 0.0, 0.0652, 0.029], "values_B": [0.7319, 2.5217, 0.913, 0.1594, 1.6522, 2.1014, 0.529, 0.2754, 0.5725, 0.7391, 0.3261, 0.1377]}, "【九州大学】 電気情報工学科": {"values_A": [0.0385, 0.0285, 0.0084, 0.3819, 0.1591, 2.2764, 1.675, 2.1491, 0.4372, 0.0, 0.0436, 0.005], "values_B": [0.7504, 2.5863, 0.9497, 0.2094, 1.7052, 2.3534, 0.732, 0.469, 0.5394, 1.5394, 1.2881, 0.2295]}, "【九州大学】 音響設計コース": {"values_A": [0.5167, 0.525, 1.1583, 0.6917, 0.0833, 2.0167, 0.75, 1.525, 0.9, 0.0, 0.2583, 0.0083], "values_B": [1.5083, 2.475, 1.2167, 0.275, 1.9167, 1.9917, 0.8833, 0.9917, 1.4667, 1.3417, 0.8583, 0.2917]}, "【九州大学】 基幹教育科目": {"values_A": [0.3198, 0.8112, 0.1726, 0.8683, 0.2007, 0.9351, 0.3974, 0.2649, 0.1935, 0.0609, 0.368, 0.1228], "values_B": [1.8349, 1.9244, 1.9282, 0.6262, 1.9884, 1.4358, 0.982, 0.5233, 1.6504, 0.8743, 0.4722, 0.4094]}, "【中部大学】 機械工学科": {"values_A": [0.0789, 0.043, 0.2688, 0.1685, 0.1935, 2.0681, 0.9104, 2.8889, 1.1398, 0.0, 0.0, 0.0108], "values_B": [1.0717, 2.3584, 0.7312, 0.3477, 1.9857, 2.4731, 0.8996, 0.7885, 0.9964, 1.1828, 1.172, 0.5054]}, "【中部大学】 AA": {"values_A": [0.3937, 1.0318, 0.2907, 0.9252, 0.3185, 0.6085, 0.6077, 0.1077, 0.3312, 0.0311, 0.4978, 0.1996], "values_B": [2.0, 1.8547, 1.9664, 0.7299, 2.115, 1.3879, 1.008, 0.3952, 1.6468, 1.0376, 0.6815, 0.2408]}, "【中部大学】 理工系教育圏科目": {"values_A": [0.0444, 0.1496, 0.0533, 0.4444, 0.477, 2.4622, 0.2889, 1.1911, 0.1496, 0.0178, 0.1615, 0.1111], "values_B": [1.317, 2.4667, 0.4741, 0.5926, 1.9985, 2.5541, 0.9941, 0.4133, 0.8074, 0.7881, 0.2459, 0.3259]}, "【中部大学】 AIロボティクス学科": {"values_A": [0.1475, 0.1421, 0.1421, 0.5355, 0.0383, 1.6175, 1.9672, 2.1038, 0.8197, 0.0, 0.1366, 0.0109], "values_B": [1.6175, 2.1858, 1.0601, 0.1694, 2.0492, 2.4098, 1.1311, 0.9563, 1.4372, 1.918, 2.0055, 0.6066]}, "【中部大学】 数理・物理サイエンス学科": {"values_A": [0.2442, 0.0504, 0.0, 0.1589, 0.0271, 2.969, 0.5116, 0.7481, 0.438, 0.0155, 0.1047, 0.0], "values_B": [1.4535, 2.8217, 0.8876, 0.1395, 1.9729, 2.3333, 0.8721, 0.3333, 1.2907, 1.0233, 0.5969, 0.2907]}, "【中部大学】 宇宙航空学科": {"values_A": [0.0748, 0.068, 0.068, 0.3061, 0.2041, 2.2313, 0.9796, 2.4558, 0.7959, 0.0408, 0.034, 0.2449], "values_B": [1.1973, 2.3673, 0.7143, 0.2857, 2.0272, 2.3605, 0.8707, 0.4626, 0.9592, 1.415, 1.0748, 0.3605]}, "【中部大学】 経営総合学科": {"values_A": [0.1855, 0.1949, 0.1169, 1.7473, 2.0941, 0.8548, 0.7151, 0.1398, 0.1237, 0.0, 0.1519, 0.2003], "values_B": [1.9718, 2.4933, 1.2258, 0.6102, 2.1344, 2.1747, 1.0094, 0.7487, 1.6653, 1.5874, 0.8401, 1.3159]}, "【中部大学】 建築学科": {"values_A": [0.0423, 0.4742, 1.0892, 0.5493, 0.3615, 1.1362, 0.5446, 3.0, 0.6291, 0.061, 0.1737, 0.0329], "values_B": [1.6714, 2.2723, 0.8592, 0.5587, 1.9484, 2.216, 0.9531, 1.2958, 1.6244, 1.2958, 0.7183, 0.7324]}, "【中部大学】 都市建設工学科": {"values_A": [0.0877, 0.193, 0.2398, 0.6491, 0.5556, 2.0234, 0.5906, 2.8421, 0.6842, 0.0175, 0.152, 0.0936], "values_B": [1.6491, 2.2982, 0.883, 0.731, 2.0351, 2.5731, 0.9825, 0.5029, 1.4678, 1.2865, 0.7368, 0.8655]}, "【中部大学】 応用化学科": {"values_A": [0.1354, 0.1302, 0.0573, 0.2865, 0.2135, 2.7396, 0.4427, 1.7031, 0.7865, 0.0156, 0.2292, 0.0104], "values_B": [1.3854, 2.375, 1.1562, 0.4375, 2.1146, 2.0208, 0.75, 0.3594, 1.0208, 1.2917, 0.5417, 0.3229]}, "【中部大学】 電気電子システム工学科": {"values_A": [0.0444, 0.0222, 0.0444, 0.32, 0.2044, 2.4089, 1.0178, 2.6889, 0.8844, 0.0, 0.0133, 0.0044], "values_B": [1.0578, 2.4756, 0.5644, 0.2622, 1.96, 2.3689, 0.7511, 0.3644, 0.6444, 1.48, 0.8444, 0.28]}, "【中部大学】 情報工学科": {"values_A": [0.1362, 0.043, 0.1935, 0.8817, 0.1577, 1.7025, 2.6882, 1.1505, 0.5341, 0.0, 0.0502, 0.0143], "values_B": [1.3835, 2.4516, 0.8961, 0.2186, 2.0143, 2.5735, 1.0, 0.9821, 1.172, 2.4373, 2.4552, 0.5735]}, "【中部大学】 応用生物化学科": {"values_A": [0.0996, 0.1379, 0.023, 0.4598, 0.4828, 2.4713, 0.4215, 0.5709, 0.6322, 0.5824, 0.8506, 0.0575], "values_B": [1.5057, 2.2567, 0.9617, 0.5862, 2.1379, 1.9808, 0.9157, 0.4061, 1.2452, 1.3333, 0.5134, 0.5326]}, "【中部大学】 環境生物科学科": {"values_A": [0.1447, 0.1415, 0.0126, 0.456, 0.2893, 2.7956, 0.3648, 0.478, 0.7736, 1.3428, 0.5723, 0.0346], "values_B": [1.4906, 2.3616, 0.9591, 0.6132, 1.9811, 2.0975, 0.8836, 0.4245, 1.4119, 1.3459, 0.4465, 0.5472]}, "【中部大学】 食品栄養科学科": {"values_A": [0.2642, 0.1368, 0.0613, 0.5991, 0.5267, 2.4387, 0.327, 0.6682, 0.7783, 0.4403, 1.7862, 0.1682], "values_B": [1.6179, 2.2201, 1.1258, 0.7091, 2.0377, 1.9748, 0.8805, 0.3569, 1.3459, 1.2406, 0.3931, 0.7186]}, "【中部大学】 英語英米文学科": {"values_A": [0.7405, 1.745, 0.2617, 1.0447, 0.2013, 0.0537, 0.4899, 0.0, 0.0268, 0.0, 0.1186, 0.1141], "values_B": [2.1924, 2.132, 2.9642, 0.4027, 2.3378, 1.4362, 1.0626, 0.6465, 2.2796, 1.3714, 0.8501, 0.6197]}, "【中部大学】 歴史地理学科": {"values_A": [0.3251, 2.224, 0.1557, 1.7322, 0.3115, 0.4836, 0.3661, 0.2186, 0.0874, 0.0683, 0.1557, 0.0683], "values_B": [1.776, 2.8169, 1.7268, 0.5929, 2.235, 1.8251, 0.9262, 0.4973, 1.8279, 1.5383, 0.4317, 0.6038]}, "【中部大学】 日本語日本文化学科": {"values_A": [1.1732, 2.6373, 0.6536, 0.915, 0.0458, 0.1111, 0.1732, 0.0261, 0.0915, 0.0098, 0.1078, 0.0033], "values_B": [1.7157, 2.4248, 2.4575, 0.732, 2.1405, 1.415, 0.9118, 0.6275, 1.7843, 1.0229, 0.2614, 0.2941]}, "【中部大学】 メディア情報社会学科": {"values_A": [0.6039, 1.3285, 1.4444, 2.1208, 0.401, 0.1981, 1.2126, 0.3382, 0.7101, 0.0242, 0.1932, 0.1498], "values_B": [1.8502, 2.4831, 1.5024, 1.0531, 1.9952, 1.8696, 1.087, 1.5942, 2.1739, 1.8647, 1.2754, 0.6232]}, "【中部大学】 心理学科": {"values_A": [0.7841, 0.5455, 0.0871, 2.6667, 0.4697, 0.7652, 0.3561, 0.0492, 0.1061, 0.0114, 1.5114, 0.0455], "values_B": [2.1023, 2.7045, 1.5606, 1.0492, 2.1553, 1.9697, 0.9659, 0.4659, 1.8068, 1.4356, 0.4659, 0.6326]}, "【中部大学】 学部共通科目": {"values_A": [2.6774, 0.6559, 0.4731, 1.6774, 0.7957, 0.3763, 0.3978, 0.0, 0.3118, 0.0, 1.043, 0.3978], "values_B": [2.6237, 2.1075, 1.6237, 1.5484, 2.4086, 2.0108, 1.3763, 0.871, 2.2366, 1.4301, 0.5806, 1.1613]}, "【中部大学】 生命医科学科": {"values_A": [0.1549, 0.1044, 0.0101, 0.4882, 0.3704, 2.2896, 0.4747, 0.4512, 1.0067, 0.0976, 2.7542, 0.0774], "values_B": [1.4747, 2.1953, 0.9327, 1.0606, 2.0572, 1.9966, 0.8956, 0.202, 1.1616, 1.2795, 0.4545, 0.4545]}, "【中部大学】 臨床工学科": {"values_A": [0.1389, 0.125, 0.0139, 0.3576, 0.3264, 2.066, 0.4826, 1.2674, 1.0382, 0.0243, 2.7674, 0.0347], "values_B": [1.3299, 2.0868, 0.8403, 0.8472, 1.9757, 1.9826, 0.7917, 0.1007, 0.9271, 0.9965, 0.3611, 0.3854]}, "【中部大学】 スポーツ保健医療学科": {"values_A": [0.9571, 0.1551, 0.0264, 0.6733, 0.3102, 1.736, 0.2343, 0.2409, 0.7195, 0.0264, 2.8746, 0.8647], "values_B": [1.7954, 2.0693, 0.8812, 0.9406, 2.0759, 2.0264, 1.0858, 0.2475, 1.1683, 0.8977, 0.2211, 0.7624]}, "【中部大学】 保健看護学科": {"values_A": [0.6572, 0.4182, 0.0063, 1.1572, 0.5943, 1.4623, 0.261, 0.0535, 0.5, 0.0314, 2.9686, 0.1478], "values_B": [2.2107, 2.4277, 1.2044, 1.739, 2.1981, 2.2547, 1.3019, 0.1792, 1.3711, 1.1541, 0.3176, 0.9308]}, "【中部大学】 理学療法学科": {"values_A": [0.4022, 0.1486, 0.0109, 0.587, 0.2391, 1.7101, 0.3696, 0.2536, 0.7319, 0.0254, 2.942, 0.1268], "values_B": [1.8188, 2.1667, 0.9493, 0.8406, 2.0616, 2.0036, 0.9565, 0.1377, 1.1884, 1.0616, 0.3768, 0.5072]}, "【中部大学】 作業療法学科": {"values_A": [0.7429, 0.1921, 0.0537, 0.9068, 0.4407, 1.4096, 0.2599, 0.1893, 0.5254, 0.0254, 2.9237, 0.1158], "values_B": [1.8729, 2.2599, 1.0198, 1.0932, 2.096, 2.0621, 1.0198, 0.3023, 1.404, 1.096, 0.2853, 0.7175]}, "【中部大学】 現代教育学科": {"values_A": [2.8009, 0.6912, 0.3795, 1.0693, 0.2684, 0.9625, 0.6883, 0.1429, 0.3405, 0.0317, 0.7302, 0.0289], "values_B": [2.3348, 2.5036, 1.6162, 0.9221, 2.2843, 2.1515, 1.1241, 1.0823, 2.0664, 1.4242, 0.7244, 1.0101]}, "【中部大学】 幼児教育学科": {"values_A": [2.8459, 0.5818, 0.9969, 1.2767, 0.3868, 0.4528, 0.3805, 0.1981, 0.7987, 0.0535, 2.239, 0.3333], "values_B": [2.6509, 2.2893, 1.5597, 1.4277, 2.4119, 2.0755, 1.3648, 1.3805, 2.2296, 1.1541, 0.5094, 1.3396]}, "【中部大学】 課程科目": {"values_A": [0.9524, 1.0952, 0.6667, 3.0, 1.1905, 0.0, 0.8095, 0.0, 0.1429, 0.0, 0.381, 0.8095], "values_B": [1.9048, 2.2381, 1.3333, 1.1905, 1.7143, 1.4762, 0.8095, 0.7619, 1.7619, 2.0, 0.619, 1.1905]}, "【中部大学】 国際学科": {"values_A": [0.4141, 1.3694, 0.2801, 1.5601, 0.4313, 0.2062, 0.3127, 0.067, 0.012, 0.0601, 0.1735, 0.1134], "values_B": [2.4502, 2.0086, 2.5842, 0.677, 2.0859, 1.3024, 1.1168, 0.5309, 2.2612, 0.9742, 0.3797, 0.4364]}, "【名古屋大学】 全学教育科目": {"values_A": [0.3853, 0.8769, 0.1904, 0.8336, 0.2506, 0.9071, 0.3928, 0.2191, 0.2532, 0.063, 0.4309, 0.1455], "values_B": [2.0081, 1.9991, 2.083, 0.596, 1.9487, 1.493, 1.1325, 0.5716, 1.873, 0.8448, 0.5143, 0.4357]}, "【名古屋大学】 医学部保健学科": {"values_A": [0.346, 0.1472, 0.0368, 0.5868, 0.2892, 1.6835, 0.571, 0.4637, 0.9096, 0.0158, 2.8559, 0.0936], "values_B": [1.7413, 2.1388, 0.9863, 1.2587, 1.8528, 1.9716, 1.0505, 0.3018, 1.2029, 1.1009, 0.6414, 0.5489]}, "【名古屋大学】 化学生命工学科": {"values_A": [0.0078, 0.0078, 0.0, 0.0116, 0.0543, 2.7326, 0.2016, 1.4884, 0.7326, 0.0349, 0.4302, 0.0039], "values_B": [0.6744, 2.155, 0.562, 0.2016, 1.3953, 1.8101, 0.3837, 0.5465, 0.7442, 0.6357, 0.2287, 0.1279]}, "【名古屋大学】 物理工学科": {"values_A": [0.0167, 0.0, 0.0, 0.0111, 0.0056, 2.9278, 0.4056, 1.7556, 0.3167, 0.0, 0.05, 0.0], "values_B": [0.6556, 2.4444, 0.6556, 0.05, 1.6278, 2.2944, 0.5944, 0.3778, 0.9167, 0.6556, 0.4556, 0.1111]}, "【名古屋大学】 機械・航空宇宙工学科": {"values_A": [0.005, 0.0025, 0.0602, 0.1028, 0.0551, 2.0476, 0.604, 2.1779, 0.594, 0.0, 0.0226, 0.0125], "values_B": [0.6667, 1.995, 0.5313, 0.0175, 1.1805, 1.9298, 0.4361, 0.4787, 0.6165, 0.7594, 0.6341, 0.1328]}, "【名古屋大学】 エネルギー理工学科": {"values_A": [0.0103, 0.0103, 0.0308, 0.1179, 0.0821, 2.7795, 0.3897, 1.9949, 0.7128, 0.0051, 0.3436, 0.0], "values_B": [1.0256, 2.5385, 0.759, 0.2769, 1.7846, 2.2872, 0.5949, 0.3077, 1.0359, 0.9282, 0.4923, 0.241]}, "【名古屋大学】 環境土木・建築学科": {"values_A": [0.0229, 0.366, 0.5556, 0.6275, 0.3366, 1.8301, 0.4346, 2.6928, 0.5686, 0.0098, 0.183, 0.0556], "values_B": [1.3007, 2.3922, 0.9379, 0.6928, 1.6471, 2.415, 0.7582, 0.8595, 1.4248, 0.9477, 0.6405, 0.5556]}, "【名古屋大学】 電気電子情報工学科": {"values_A": [0.0, 0.003, 0.027, 0.1201, 0.1021, 2.006, 0.7417, 2.1081, 0.5676, 0.006, 0.018, 0.009], "values_B": [0.7087, 1.964, 0.6967, 0.0751, 1.2703, 1.8619, 0.4805, 0.4925, 0.6847, 0.8228, 0.6156, 0.1111]}, "【名古屋大学】 マテリアル工学科": {"values_A": [0.0159, 0.0106, 0.0, 0.0794, 0.0688, 2.7725, 0.4709, 2.5026, 0.709, 0.0, 0.0476, 0.0], "values_B": [0.8148, 2.4815, 0.5767, 0.0635, 1.545, 2.4286, 0.5344, 0.5079, 0.746, 0.8783, 0.5979, 0.2275]}, "【名古屋大学】 自然情報学科": {"values_A": [0.0452, 0.1017, 0.0282, 0.7458, 0.0395, 2.678, 1.5198, 0.3051, 0.0621, 0.0339, 0.1638, 0.0], "values_B": [0.8305, 2.7119, 0.5028, 0.1412, 1.4294, 2.2938, 0.6554, 0.6102, 0.8023, 1.4859, 1.2486, 0.113]}, "【名古屋大学】 人間・社会情報学科": {"values_A": [0.3611, 1.0347, 0.3611, 2.6389, 0.1458, 0.8958, 1.0069, 0.0417, 0.0833, 0.0208, 0.7083, 0.0347], "values_B": [1.9514, 2.8403, 1.3611, 1.0556, 1.7083, 2.0069, 1.0486, 0.8681, 1.7431, 1.8333, 0.9306, 0.4097]}, "【名古屋大学】 コンピュータ科学科": {"values_A": [0.0, 0.0267, 0.0267, 0.88, 0.0667, 1.68, 2.6333, 1.0867, 0.2133, 0.0, 0.1267, 0.04], "values_B": [0.7533, 2.5333, 0.56, 0.14, 1.26, 2.4867, 0.7, 0.68, 0.68, 2.0467, 2.1067, 0.3]}, "【名古屋大学】 発達教育臨床コース": {"values_A": [1.7778, 0.2444, 0.1111, 2.5778, 0.2222, 0.6889, 0.0889, 0.0, 0.2, 0.0, 2.3111, 0.0667], "values_B": [2.3111, 2.4889, 1.1556, 1.4444, 1.8, 2.1111, 1.2, 0.3778, 1.6, 0.7556, 0.2667, 0.5111]}, "【名古屋大学】 生涯教育開発コース": {"values_A": [2.8182, 1.0, 0.0, 2.697, 1.0, 0.0, 0.697, 0.0, 0.0909, 0.0, 0.9394, 0.0], "values_B": [2.2727, 2.6364, 1.6061, 1.6061, 1.9394, 1.8485, 1.0303, 0.9394, 1.9697, 1.9091, 0.7576, 1.0909]}, "【名古屋大学】 国際社会文化コース": {"values_A": [2.6667, 1.6429, 0.0, 2.4048, 0.1667, 0.0714, 0.2143, 0.0, 0.0238, 0.0, 0.5, 0.0238], "values_B": [2.6429, 2.7857, 2.3571, 1.3095, 2.1429, 1.6429, 1.2143, 0.6667, 2.1667, 1.2857, 0.3333, 0.9286]}, "【名古屋大学】 学校教育情報コース": {"values_A": [2.9722, 0.4444, 0.1667, 1.7917, 0.6111, 0.6111, 1.3611, 0.1389, 0.3194, 0.0556, 0.3611, 0.0], "values_B": [2.3056, 2.6806, 1.2917, 1.0417, 2.0833, 2.2361, 1.125, 1.1667, 1.7917, 2.1111, 1.3056, 1.3611]}, "【名古屋大学】 心理社会行動コース": {"values_A": [1.8095, 0.3333, 0.0, 2.7619, 0.9048, 0.9048, 0.4286, 0.0, 0.0952, 0.0, 1.619, 0.0], "values_B": [2.0952, 2.6667, 1.619, 1.619, 1.8095, 1.9524, 1.1429, 0.1905, 1.5714, 1.2381, 0.2381, 0.8571]}, "【名古屋大学】 文学部": {"values_A": [0.4194, 2.507, 0.5427, 1.0736, 0.1217, 0.2366, 0.2222, 0.0728, 0.1361, 0.019, 0.1255, 0.047], "values_B": [1.8601, 2.5556, 2.2435, 0.6223, 1.8149, 1.5271, 0.8718, 0.6083, 1.8487, 0.986, 0.2958, 0.4513]}, "【名古屋大学】 法学部": {"values_A": [0.1475, 1.0088, 0.0103, 2.0413, 2.4344, 0.1777, 0.2972, 0.0037, 0.0088, 0.0, 0.2212, 0.0155], "values_B": [2.2987, 2.8628, 2.0428, 1.2979, 1.9417, 1.9676, 1.0649, 0.5833, 2.0819, 1.1327, 0.4521, 0.8105]}, "【名古屋大学】 化学科": {"values_A": [0.0, 0.0056, 0.0167, 0.0167, 0.0056, 2.9833, 0.3167, 1.0222, 0.8833, 0.0, 0.1778, 0.0], "values_B": [0.8056, 2.4833, 0.7111, 0.1278, 1.6889, 2.0889, 0.6111, 0.3944, 0.7833, 0.8389, 0.4278, 0.0889]}, "【名古屋大学】 生命理学科": {"values_A": [0.0759, 0.0363, 0.0495, 0.0627, 0.0, 2.9307, 0.4059, 0.3861, 0.8317, 0.3927, 0.7261, 0.0099], "values_B": [1.3036, 2.2277, 1.0627, 0.2574, 1.6667, 1.7789, 0.7888, 0.5281, 1.2706, 0.9769, 0.6271, 0.2079]}, "【名古屋大学】 地球惑星科学科": {"values_A": [0.0376, 0.1237, 0.0, 0.0914, 0.0108, 3.0, 0.5054, 0.6667, 0.871, 0.1828, 0.0376, 0.0323], "values_B": [1.3172, 2.6075, 0.9785, 0.2473, 1.9355, 2.1828, 0.8226, 0.3817, 1.4516, 1.2742, 0.6344, 0.3548]}, "【名古屋大学】 数理学科": {"values_A": [0.0462, 0.0462, 0.0051, 0.1744, 0.1692, 2.9846, 0.4615, 0.0667, 0.0256, 0.0, 0.0769, 0.0103], "values_B": [0.7128, 2.7538, 0.8, 0.0667, 1.4564, 2.2308, 0.6308, 0.5231, 0.8564, 0.4872, 0.4, 0.1436]}, "【名古屋大学】 物理学科": {"values_A": [0.1782, 0.0201, 0.023, 0.0517, 0.0, 2.9224, 0.5057, 0.7529, 0.4397, 0.0029, 0.0776, 0.0], "values_B": [1.3851, 2.7615, 1.1121, 0.181, 1.8908, 2.4224, 0.8563, 0.4626, 1.3132, 0.9569, 0.6149, 0.3563]}, "【名古屋大学】 経済学部": {"values_A": [0.0686, 0.3317, 0.0096, 2.6555, 1.6818, 0.9769, 0.315, 0.0622, 0.0247, 0.0167, 0.071, 0.0399], "values_B": [2.1738, 2.7552, 1.508, 0.4203, 1.8014, 2.1938, 0.9242, 0.6435, 2.0263, 1.2392, 0.4298, 0.9809]}, "【名古屋大学】 農学部": {"values_A": [0.0582, 0.0928, 0.038, 0.3333, 0.2617, 2.5839, 0.3736, 0.6174, 0.4732, 2.0123, 0.406, 0.0145], "values_B": [1.066, 2.2013, 0.896, 0.3971, 1.3076, 1.755, 0.5313, 0.4396, 0.9911, 0.7595, 0.3568, 0.2763]}};
+  const chartLabelsA = [["A-1: Education"], ["A-2: Humanities"], ["A-3: Arts"], ["A-4: Social Sciences,", "Journalism & Informatics"], ["A-5: Business,", "Administration & Law"], ["A-6: Natural Sciences,", "Math & Statistics"], ["A-7: ICT"], ["A-8: Engineering,", "Manufacturing & Construction"], ["A-9: Hardware Operation", "& Material Handling"], ["A-10: Agriculture, Forestry,", "Fisheries & Veterinary"], ["A-11: health & Welfare"], ["A-12: Services"]];
+  const chartLabelsB = [["B-1: Teamwork &", "Communication"], ["B-2: Critical &", "Logical Thinking"], ["B-3: Language &", "Global Competence"], ["B-4: Ethics"], ["B-5: Self-Management", "& Autonomous Growth"], ["B-6: Problem Solving"], ["B-7: Adaptability"], ["B-8: Creativity"], ["B-9: Expressiveness", "& Presentation"], ["B-10: Info Processing", "& Digital Literacy"], ["B-11: Computer skills"], ["B-12: Leadership &", "Management"]];
+
+  const btnContainer = document.getElementById('btn-container');
+  const contentDiv = document.getElementById('content');
+  const welcomeMsg = document.getElementById('welcome-msg');
+  const modeControls = document.getElementById('mode-controls');
+  const modeExplanation = document.getElementById('mode-explanation');
+  const univFilter = document.getElementById('univ-filter');
+  const targetFilter = document.getElementById('target-filter');
+  const combineMethod = document.getElementById('combine-method');
+  const simMetric = document.getElementById('similarity-metric');
+  const searchMode = document.getElementById('search-mode');
+  const teamSizeSelect = document.getElementById('team-size');
+  const targetThresholdSelect = document.getElementById('target-threshold');
+  const teamSizeGroup = document.getElementById('team-size-group');
+  const thresholdGroup = document.getElementById('threshold-group');
+  
+  let chartInstances = [];
+  let currentDept = null;
+
+  const modeTexts = {
+      'mean': '【平均値結合】チーム参加者全員のスキルの平均をとります。人数が増えるごとに再計算され、チーム全体での総合的な実力向上をシミュレーションします。',
+      'max': '【最大値結合】チーム参加者全員のスキルの最大値をとります。人数が増えるごとに、各学科の最も得意な部分がそのまま活かされるチームをシミュレーションします。'
+  };
+
+  const allDepts = Object.keys(radarData);
+  const univs = new Set();
+  
+  allDepts.forEach(dept => {
+    const match = dept.match(/^【(.*?)】/);
+    if (match) univs.add(match[1]);
+  });
+
+  univs.forEach(univ => {
+    const option = document.createElement('option');
+    option.value = univ;
+    option.textContent = univ;
+    univFilter.appendChild(option);
+  });
+
+  const buttons = [];
+
+  allDepts.forEach(dept => {
+    const btn = document.createElement('button');
+    btn.className = 'dept-btn';
+    btn.textContent = dept;
+    const match = dept.match(/^【(.*?)】/);
+    if (match) btn.dataset.univ = match[1];
+    
+    btn.onclick = (e) => {
+      document.querySelectorAll('.dept-btn').forEach(b => b.classList.remove('active'));
+      e.target.classList.add('active');
+      currentDept = dept;
+      welcomeMsg.style.display = 'none';
+      modeControls.style.display = 'block'; 
+      modeExplanation.innerText = modeTexts[combineMethod.value];
+      runGreedySearch(); 
+    };
+    btnContainer.appendChild(btn);
+    buttons.push(btn);
+  });
+
+  searchMode.addEventListener('change', (e) => {
+    if (e.target.value === 'fixed') {
+      teamSizeGroup.style.display = 'flex';
+      thresholdGroup.style.display = 'none';
+    } else {
+      teamSizeGroup.style.display = 'none';
+      thresholdGroup.style.display = 'flex';
+    }
+    if (currentDept) runGreedySearch();
+  });
+
+  univFilter.addEventListener('change', (e) => {
+    const selected = e.target.value;
+    buttons.forEach(btn => {
+      btn.style.display = (selected === 'all' || btn.dataset.univ === selected) ? 'block' : 'none';
+    });
+  });
+
+  targetFilter.addEventListener('change', () => { if (currentDept) runGreedySearch(); });
+  teamSizeSelect.addEventListener('change', () => { if (currentDept) runGreedySearch(); });
+  targetThresholdSelect.addEventListener('change', () => { if (currentDept) runGreedySearch(); });
+  combineMethod.addEventListener('change', (e) => {
+    modeExplanation.innerText = modeTexts[e.target.value];
+    if (currentDept) runGreedySearch();
+  });
+  simMetric.addEventListener('change', () => { if (currentDept) runGreedySearch(); });
+
+  // 数学的なヘルパー関数
+  function dot(v1, v2) {
+    let sum = 0;
+    for (let i = 0; i < v1.length; i++) sum += v1[i] * v2[i];
+    return sum;
+  }
+  function norm(v) {
+    let sum = 0;
+    for (let i = 0; i < v.length; i++) sum += v[i] * v[i];
+    return Math.sqrt(sum);
+  }
+  function cosine(v1, v2) {
+    const n1 = norm(v1);
+    const n2 = norm(v2);
+    if (n1 === 0 || n2 === 0) return 0;
+    return dot(v1, v2) / (n1 * n2);
+  }
+  function tanimoto(v1, v2) {
+    const d = dot(v1, v2);
+    const n1_2 = dot(v1, v1);
+    const n2_2 = dot(v2, v2);
+    const denom = n1_2 + n2_2 - d;
+    if (denom === 0) return 0;
+    return d / denom;
+  }
+  function coverage(originalGap, currentComb) {
+    let num = 0;
+    let den = 0;
+    for (let i = 0; i < originalGap.length; i++) {
+      num += Math.min(originalGap[i], currentComb[i]);
+      den += originalGap[i];
+    }
+    if (den === 0) return 1.0;
+    return num / den;
+  }
+
+  function runGreedySearch() {
+    chartInstances.forEach(chart => chart.destroy());
+    chartInstances = [];
+
+    const searchModeVal = searchMode.value;
+    const targetFilterVal = targetFilter.value;
+    const combineMethodVal = combineMethod.value; 
+    const metricVal = simMetric.value; 
+    
+    let MAX_STEPS = 10; // 安全装置: どんなにしきい値に達しなくても最大10人まで
+    let targetThreshold = 1.0;
+    if (searchModeVal === 'fixed') {
+       MAX_STEPS = parseInt(teamSizeSelect.value);
+    } else {
+       targetThreshold = parseFloat(targetThresholdSelect.value);
+    }
+
+    const targetUnivMatch = currentDept.match(/^【(.*?)】/);
+    const currentUniv = targetUnivMatch ? targetUnivMatch[1] : '';
+
+    let candidates = allDepts.filter(dept => dept !== currentDept);
+    if (targetFilterVal === 'same' && currentUniv) {
+      candidates = candidates.filter(dept => dept.includes(`【${currentUniv}】`));
+    } else if (targetFilterVal === 'diff' && currentUniv) {
+      candidates = candidates.filter(dept => !dept.includes(`【${currentUniv}】`));
+    }
+
+    const targetVecA = radarData[currentDept].values_A;
+    const targetVecB = radarData[currentDept].values_B;
+    const originalGapB = targetVecB.map(v => Math.max(0, 3.0 - v));
+
+    let team = [currentDept];
+    let currentCombA = [...targetVecA];
+    let currentCombB = [...targetVecB];
+    let sumA = [...targetVecA];
+    let sumB = [...targetVecB];
+
+    let steps = [];
+    let currentCoverage = coverage(originalGapB, currentCombB);
+    let stopReason = "";
+
+    for (let step = 1; step <= 10; step++) { // ループ自体は最大10回
+      // 終了条件チェック
+      if (currentCoverage >= 0.999) {
+        stopReason = "カバー率が実質100%に達したため探索を完了しました。";
+        break;
+      }
+      if (searchModeVal === 'threshold' && currentCoverage >= targetThreshold) {
+        stopReason = `カバー率が目標の ${(targetThreshold*100).toFixed(0)}% を超えたため探索を完了しました。`;
+        break;
+      }
+      if (searchModeVal === 'fixed' && step > MAX_STEPS) {
+        stopReason = "指定された人数を追加し終えました。";
+        break;
+      }
+      if (searchModeVal === 'threshold' && step > MAX_STEPS) {
+        stopReason = "安全装置：最大追加人数(10学科)に達したため、しきい値未達ですが探索を打ち切りました。";
+        break;
+      }
+
+      let bestDept = null;
+      let bestScore = -Infinity;
+      let bestCombA = null, bestCombB = null;
+      let bestSumA = null, bestSumB = null;
+      let bestNewCoverage = 0;
+
+      const nextTeamSize = team.length + 1;
+
+      for (let i = 0; i < candidates.length; i++) {
+        const dept = candidates[i];
+        if (team.includes(dept)) continue;
+
+        const vecA = radarData[dept].values_A;
+        const vecB = radarData[dept].values_B;
+        let tempCombA = [], tempCombB = [];
+        let tempSumA = [], tempSumB = [];
+
+        for (let k = 0; k < 12; k++) {
+          if (combineMethodVal === 'max') {
+            tempCombA.push(Math.max(currentCombA[k], vecA[k]));
+            tempCombB.push(Math.max(currentCombB[k], vecB[k]));
+          } else { // mean
+            tempSumA.push(sumA[k] + vecA[k]);
+            tempSumB.push(sumB[k] + vecB[k]);
+            tempCombA.push(tempSumA[k] / nextTeamSize);
+            tempCombB.push(tempSumB[k] / nextTeamSize);
+          }
+        }
+
+        let score = 0;
+        if (metricVal === 'coverage') score = coverage(originalGapB, tempCombB);
+        else if (metricVal === 'cosine') score = cosine(originalGapB, tempCombB);
+        else if (metricVal === 'tanimoto') score = tanimoto(originalGapB, tempCombB);
+
+        if (score > bestScore) {
+          bestScore = score;
+          bestDept = dept;
+          bestCombA = tempCombA;
+          bestCombB = tempCombB;
+          bestSumA = tempSumA;
+          bestSumB = tempSumB;
+          bestNewCoverage = coverage(originalGapB, tempCombB);
+        }
+      }
+
+      if (bestDept) {
+        // 平均値結合時、これ以上カバー率が上がらない場合の安全装置
+        if (combineMethodVal === 'mean' && searchModeVal === 'threshold' && bestNewCoverage <= currentCoverage + 0.001) {
+           stopReason = "安全装置：これ以上平均値によるカバー率の向上が見込めないため、探索を打ち切りました。";
+           break;
+        }
+
+        team.push(bestDept);
+        let prevCombA = [...currentCombA];
+        let prevCombB = [...currentCombB];
+        
+        currentCombA = bestCombA;
+        currentCombB = bestCombB;
+        if (combineMethodVal === 'mean') {
+          sumA = bestSumA;
+          sumB = bestSumB;
+        }
+
+        currentCoverage = bestNewCoverage;
+
+        steps.push({
+          stepNum: step,
+          addedDept: bestDept,
+          scoreCoverage: currentCoverage,
+          scoreCosine: cosine(originalGapB, currentCombB),
+          scoreTanimoto: tanimoto(originalGapB, currentCombB),
+          simA: cosine(targetVecA, currentCombA),
+          prevCombA: prevCombA,
+          prevCombB: prevCombB,
+          newCombA: currentCombA,
+          newCombB: currentCombB,
+          addedVecA: radarData[bestDept].values_A,
+          addedVecB: radarData[bestDept].values_B
+        });
+      } else {
+        stopReason = "追加できる候補学科が見つからなくなったため終了しました。";
+        break;
+      }
+    }
+
+    // 描画処理
+    let html = `<h1>「${currentDept}」を起点としたドリームチーム編成 (しきい値探索対応)</h1>`;
+    
+    let teamSummaryList = team.map((t, idx) => {
+      if (idx === 0) return `<strong>基準:</strong> ${t}`;
+      return `<strong>+${idx}:</strong> ${t}`;
+    }).join('<br>');
+
+    html += `<div class="team-summary">
+      <div style="font-size: 18px; font-weight: bold; margin-bottom: 10px;">最終的に編成されたチーム (${team.length} 学科)</div>
+      ${teamSummaryList}
+      <div style="margin-top: 10px; font-weight: bold; color: #d32f2f;">最終カバー率: ${(currentCoverage * 100).toFixed(1)}%</div>
+    </div>`;
+
+    if (stopReason) {
+      html += `<div class="stop-reason">${stopReason}</div>`;
+    }
+
+    html += `<h2 style="margin-top: 30px; margin-bottom: 15px;">拡張ステップ</h2>`;
+
+    steps.forEach((step, index) => {
+      html += `
+        <div class="step-card">
+          <div class="step-header">
+            <div class="step-title">Step ${step.stepNum}</div>
+            <div class="step-stats">
+              <span class="stat-badge stat-highlight">カバー率: ${(step.scoreCoverage * 100).toFixed(1)}%</span>
+              <span class="stat-badge">コサイン類似度: ${step.scoreCosine.toFixed(3)}</span>
+              <span class="stat-badge">谷本係数: ${step.scoreTanimoto.toFixed(3)}</span>
+            </div>
+          </div>
+          <div class="step-body">
+            <div class="step-info">
+              <div style="color: #666; font-size: 14px;">追加された学科:</div>
+              <div class="added-dept">${step.addedDept}</div>
+              <table class="mini-table">
+                <tr><th>知識(A)類似度</th><td>${step.simA.toFixed(3)}</td></tr>
+              </table>
+            </div>
+            <div class="chart-container">
+              <div class="chart-wrapper">
+                <h3 style="text-align: center; font-size: 12px; margin: 0;">(A) 知識関連</h3>
+                <canvas id="chartA-${index}"></canvas>
+              </div>
+              <div class="chart-wrapper">
+                <h3 style="text-align: center; font-size: 12px; margin: 0;">(B) 汎用スキル</h3>
+                <canvas id="chartB-${index}"></canvas>
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+    });
+
+    if (steps.length === 0 && !stopReason) {
+      html += `<p>追加できる候補学科が見つかりませんでした。</p>`;
+    }
+
+    contentDiv.innerHTML = html;
+
+    // チャート描画
+    steps.forEach((step, index) => {
+      const renderRadar = (ctxId, labels, prevData, newData, addedData) => {
+        const ctx = document.getElementById(ctxId).getContext('2d');
+        const chart = new Chart(ctx, {
+          type: 'radar',
+          data: {
+            labels: labels,
+            datasets: [
+              { label: '追加後 (New Team)', data: newData, backgroundColor: 'rgba(255, 99, 132, 0.2)', borderColor: 'rgba(255, 99, 132, 1)', borderWidth: 2, pointRadius: 2 },
+              { label: '追加前 (Prev Team)', data: prevData, backgroundColor: 'transparent', borderColor: 'rgba(54, 162, 235, 1)', borderWidth: 1, borderDash: [4, 4], pointRadius: 1 },
+              { label: '追加学科', data: addedData, backgroundColor: 'transparent', borderColor: 'rgba(40, 167, 69, 0.5)', borderWidth: 1, borderDash: [2, 2], pointRadius: 1 }
+            ]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+              r: {
+                min: 0, max: 3,
+                ticks: { stepSize: 1, display: false },
+                pointLabels: { font: { size: 9 }, color: '#666' }
+              }
+            },
+            plugins: { legend: { display: false } }
+          }
+        });
+        chartInstances.push(chart);
+      };
+
+      renderRadar(`chartA-${index}`, chartLabelsA, step.prevCombA, step.newCombA, step.addedVecA);
+      renderRadar(`chartB-${index}`, chartLabelsB, step.prevCombB, step.newCombB, step.addedVecB);
+    });
+  }
+</script>
+</body>
+</html>

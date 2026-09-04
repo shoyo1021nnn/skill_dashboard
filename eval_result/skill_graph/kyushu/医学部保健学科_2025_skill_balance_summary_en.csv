@@ -1,0 +1,38 @@
+department,major,skill_en,weight
+医学部保健学科,,A-1: Education,0.33527131782945735
+医学部保健学科,,"B-12: Leadership &
+Management",0.5077519379844961
+医学部保健学科,,B-11: Computer skills,0.6608527131782945
+医学部保健学科,,"B-10: Info Processing
+& Digital Literacy",1.067829457364341
+医学部保健学科,,"B-9: Expressiveness
+& Presentation",0.998062015503876
+医学部保健学科,,B-8: Creativity,0.2131782945736434
+医学部保健学科,,B-7: Adaptability,0.8953488372093024
+医学部保健学科,,B-6: Problem Solving,1.9147286821705427
+医学部保健学科,,"B-5: Self-Management
+& Autonomous Growth",1.819767441860465
+医学部保健学科,,B-4: Ethics,1.0329457364341086
+医学部保健学科,,"B-3: Language &
+Global Competence",1.003875968992248
+医学部保健学科,,"B-2: Critical &
+Logical Thinking",2.137596899224806
+医学部保健学科,,"B-1: Teamwork &
+Communication",1.567829457364341
+医学部保健学科,,A-12: Services,0.1065891472868217
+医学部保健学科,,A-11: health & Welfare,2.8430232558139537
+医学部保健学科,,"A-10: Agriculture, Forestry,
+Fisheries & Veterinary",0.01937984496124031
+医学部保健学科,,"A-9: Hardware Operation
+& Material Handling",0.9166666666666666
+医学部保健学科,,"A-8: Engineering,
+Manufacturing & Construction",0.563953488372093
+医学部保健学科,,A-7: ICT,0.5251937984496124
+医学部保健学科,,"A-6: Natural Sciences,
+Math & Statistics",1.802325581395349
+医学部保健学科,,"A-5: Business,
+Administration & Law",0.28488372093023256
+医学部保健学科,,"A-4: Social Sciences,
+Journalism & Informatics",0.560077519379845
+医学部保健学科,,A-3: Arts,0.015503875968992248
+医学部保健学科,,A-2: Humanities,0.1744186046511628

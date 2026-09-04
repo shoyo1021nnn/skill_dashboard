@@ -1,0 +1,38 @@
+department,major,skill_en,weight
+LC,,A-1: Education,0.1388888888888889
+LC,,"B-12: Leadership &
+Management",0.3854166666666667
+LC,,B-11: Computer skills,0.3611111111111111
+LC,,"B-10: Info Processing
+& Digital Literacy",0.9965277777777778
+LC,,"B-9: Expressiveness
+& Presentation",0.9270833333333334
+LC,,B-8: Creativity,0.10069444444444445
+LC,,B-7: Adaptability,0.7916666666666666
+LC,,B-6: Problem Solving,1.9826388888888888
+LC,,"B-5: Self-Management
+& Autonomous Growth",1.9756944444444444
+LC,,B-4: Ethics,0.8472222222222222
+LC,,"B-3: Language &
+Global Competence",0.8402777777777778
+LC,,"B-2: Critical &
+Logical Thinking",2.0868055555555554
+LC,,"B-1: Teamwork &
+Communication",1.3298611111111112
+LC,,A-12: Services,0.034722222222222224
+LC,,A-11: health & Welfare,2.767361111111111
+LC,,"A-10: Agriculture, Forestry,
+Fisheries & Veterinary",0.024305555555555556
+LC,,"A-9: Hardware Operation
+& Material Handling",1.0381944444444444
+LC,,"A-8: Engineering,
+Manufacturing & Construction",1.2673611111111112
+LC,,A-7: ICT,0.4826388888888889
+LC,,"A-6: Natural Sciences,
+Math & Statistics",2.0659722222222223
+LC,,"A-5: Business,
+Administration & Law",0.3263888888888889
+LC,,"A-4: Social Sciences,
+Journalism & Informatics",0.3576388888888889
+LC,,A-3: Arts,0.013888888888888888
+LC,,A-2: Humanities,0.125

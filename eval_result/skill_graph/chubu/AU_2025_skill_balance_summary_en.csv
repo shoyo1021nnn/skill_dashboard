@@ -1,0 +1,38 @@
+department,major,skill_en,weight
+AU,,A-1: Education,0.07482993197278912
+AU,,"B-12: Leadership &
+Management",0.36054421768707484
+AU,,B-11: Computer skills,1.0748299319727892
+AU,,"B-10: Info Processing
+& Digital Literacy",1.4149659863945578
+AU,,"B-9: Expressiveness
+& Presentation",0.9591836734693877
+AU,,B-8: Creativity,0.46258503401360546
+AU,,B-7: Adaptability,0.8707482993197279
+AU,,B-6: Problem Solving,2.360544217687075
+AU,,"B-5: Self-Management
+& Autonomous Growth",2.0272108843537415
+AU,,B-4: Ethics,0.2857142857142857
+AU,,"B-3: Language &
+Global Competence",0.7142857142857143
+AU,,"B-2: Critical &
+Logical Thinking",2.36734693877551
+AU,,"B-1: Teamwork &
+Communication",1.1972789115646258
+AU,,A-12: Services,0.24489795918367346
+AU,,A-11: health & Welfare,0.034013605442176874
+AU,,"A-10: Agriculture, Forestry,
+Fisheries & Veterinary",0.04081632653061224
+AU,,"A-9: Hardware Operation
+& Material Handling",0.7959183673469388
+AU,,"A-8: Engineering,
+Manufacturing & Construction",2.45578231292517
+AU,,A-7: ICT,0.9795918367346939
+AU,,"A-6: Natural Sciences,
+Math & Statistics",2.2312925170068025
+AU,,"A-5: Business,
+Administration & Law",0.20408163265306123
+AU,,"A-4: Social Sciences,
+Journalism & Informatics",0.30612244897959184
+AU,,A-3: Arts,0.06802721088435375
+AU,,A-2: Humanities,0.06802721088435375

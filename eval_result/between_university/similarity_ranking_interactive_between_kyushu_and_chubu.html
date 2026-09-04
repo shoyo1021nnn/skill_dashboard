@@ -1,0 +1,351 @@
+
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>スキル類似度ランキング ダッシュボード</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg-color: #0f172a;
+    --sidebar-bg: rgba(30, 41, 59, 0.7);
+    --card-bg: rgba(30, 41, 59, 0.5);
+    --accent: #38bdf8;
+    --accent-hover: #0ea5e9;
+    --text-main: #f8fafc;
+    --text-muted: #94a3b8;
+    --border: rgba(255, 255, 255, 0.1);
+  }
+
+  body { 
+    font-family: 'Inter', 'Noto Sans JP', sans-serif; 
+    margin: 0; 
+    padding: 0; 
+    display: flex; 
+    background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+    color: var(--text-main); 
+    min-height: 100vh;
+  }
+
+  #sidebar { 
+    width: 320px; 
+    height: 100vh; 
+    overflow-y: auto; 
+    background: var(--sidebar-bg); 
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border-right: 1px solid var(--border);
+    padding: 24px; 
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    flex-shrink: 0;
+  }
+
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 10px; }
+  ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.3); }
+
+  #sidebar h2 { 
+    margin-top: 0; 
+    font-size: 1.25rem; 
+    font-weight: 800;
+    letter-spacing: 0.05em;
+    background: linear-gradient(to right, #38bdf8, #818cf8);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    padding-bottom: 20px; 
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 20px;
+  }
+
+  .dept-btn { 
+    display: block; 
+    width: 100%; 
+    padding: 14px 16px; 
+    margin-bottom: 10px; 
+    background: transparent; 
+    color: var(--text-muted); 
+    border: 1px solid var(--border); 
+    border-radius: 8px; 
+    cursor: pointer; 
+    text-align: left; 
+    font-size: 0.95rem;
+    font-weight: 500;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); 
+    position: relative;
+    overflow: hidden;
+  }
+
+  .dept-btn::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: linear-gradient(to right, rgba(56,189,248,0.1), rgba(129,140,248,0.1));
+    opacity: 0;
+    transition: opacity 0.3s;
+  }
+
+  .dept-btn:hover { 
+    color: var(--text-main);
+    border-color: rgba(56, 189, 248, 0.5);
+    transform: translateX(4px);
+  }
+
+  .dept-btn:hover::before { opacity: 1; }
+
+  .dept-btn.active { 
+    background: linear-gradient(135deg, rgba(56, 189, 248, 0.2) 0%, rgba(129, 140, 248, 0.2) 100%);
+    color: var(--accent); 
+    border-color: var(--accent);
+    font-weight: 700;
+    box-shadow: 0 0 15px rgba(56, 189, 248, 0.15);
+  }
+
+  #main { 
+    flex-grow: 1; 
+    padding: 40px 60px; 
+    box-sizing: border-box; 
+    overflow-y: auto; 
+    height: 100vh;
+    position: relative;
+  }
+
+  .bg-glow {
+    position: absolute;
+    width: 400px;
+    height: 400px;
+    background: rgba(56, 189, 248, 0.15);
+    filter: blur(100px);
+    border-radius: 50%;
+    top: -100px;
+    right: -100px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  #content {
+    position: relative;
+    z-index: 1;
+    max-width: 900px;
+    margin: 0 auto;
+    animation: fadeIn 0.5s ease-out;
+  }
+
+  h1 { 
+    font-size: 2rem;
+    font-weight: 800;
+    margin-bottom: 30px;
+    display: inline-block;
+  }
+
+  .subtitle {
+      color: var(--accent);
+      font-size: 1rem;
+      font-weight: 600;
+      margin-bottom: 8px;
+      display: block;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+  }
+
+  .ranking-card { 
+    background: var(--card-bg); 
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    border: 1px solid var(--border);
+    border-radius: 16px; 
+    padding: 24px; 
+    margin-bottom: 16px; 
+    display: flex; 
+    justify-content: space-between; 
+    align-items: center; 
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); 
+    animation: slideUp 0.5s ease-out forwards;
+    opacity: 0;
+    transform: translateY(20px);
+  }
+
+  .ranking-card:nth-child(1) { animation-delay: 0.1s; border-left: 4px solid #fbbf24; }
+  .ranking-card:nth-child(2) { animation-delay: 0.2s; border-left: 4px solid #94a3b8; }
+  .ranking-card:nth-child(3) { animation-delay: 0.3s; border-left: 4px solid #b45309; }
+  .ranking-card:nth-child(4) { animation-delay: 0.4s; }
+  .ranking-card:nth-child(5) { animation-delay: 0.5s; }
+
+  .ranking-card:hover { 
+    transform: translateY(-4px) scale(1.01); 
+    box-shadow: 0 12px 24px rgba(0,0,0,0.2);
+    border-color: rgba(255,255,255,0.2);
+    background: rgba(40, 53, 72, 0.6);
+  }
+
+  .rank-badge { 
+    width: 48px; 
+    height: 48px; 
+    display: flex; 
+    justify-content: center; 
+    align-items: center; 
+    border-radius: 12px; 
+    font-size: 1.25rem; 
+    font-weight: 800; 
+    margin-right: 24px; 
+    flex-shrink: 0; 
+    background: rgba(255,255,255,0.05);
+    color: var(--text-muted);
+  }
+
+  .ranking-card:nth-child(1) .rank-badge { background: rgba(251, 191, 36, 0.15); color: #fbbf24; }
+  .ranking-card:nth-child(2) .rank-badge { background: rgba(148, 163, 184, 0.15); color: #f8fafc; }
+  .ranking-card:nth-child(3) .rank-badge { background: rgba(180, 83, 9, 0.15); color: #f59e0b; }
+
+  .rank-info { flex-grow: 1; }
+
+  .rank-name { 
+    font-size: 1.15rem; 
+    font-weight: 700; 
+    margin-bottom: 6px; 
+    color: #e2e8f0;
+  }
+
+  .rank-score { 
+    color: var(--text-muted); 
+    font-size: 0.9rem; 
+    font-variant-numeric: tabular-nums;
+  }
+
+  .score-visual {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      flex-shrink: 0;
+  }
+
+  .score-bar-container { 
+    width: 140px; 
+    background-color: rgba(255,255,255,0.05); 
+    border-radius: 999px; 
+    height: 8px; 
+    overflow: hidden; 
+  }
+
+  .score-bar { 
+    height: 100%; 
+    background: linear-gradient(90deg, #38bdf8, #818cf8);
+    border-radius: 999px;
+    box-shadow: 0 0 10px rgba(56, 189, 248, 0.5);
+    position: relative;
+    transition: width 1s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .score-percentage {
+      font-size: 0.9rem;
+      font-weight: 600;
+      color: var(--accent);
+      min-width: 48px;
+      text-align: right;
+  }
+
+  #welcome-msg { 
+    text-align: center; 
+    color: var(--text-muted); 
+    margin-top: 35vh; 
+    font-size: 1.1rem;
+    animation: pulse 2s infinite;
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+
+  @keyframes slideUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  @keyframes pulse {
+      0% { opacity: 0.6; }
+      50% { opacity: 1; }
+      100% { opacity: 0.6; }
+  }
+</style>
+</head>
+<body>
+
+<div id="sidebar">
+  <h2>基準学科を選択</h2>
+  <div id="btn-container"></div>
+</div>
+
+<div id="main">
+  <div class="bg-glow"></div>
+  <div id="content">
+    <div id="welcome-msg">左のメニューから学科を選択してください</div>
+  </div>
+</div>
+
+<script>
+  const rankingData = {"共創学部": [{"rank": 1, "target": "【chubu】 AA", "score": 0.9744793549809959}, {"rank": 2, "target": "【chubu】 HH", "score": 0.9590643408498857}, {"rank": 3, "target": "【chubu】 NA", "score": 0.9525812647009781}, {"rank": 4, "target": "【chubu】 HW", "score": 0.9483509353043544}, {"rank": 5, "target": "【chubu】 HF", "score": 0.9407285379706679}], "教育学部": [{"rank": 1, "target": "【chubu】 ZA", "score": 0.9905217641545268}, {"rank": 2, "target": "【chubu】 PX", "score": 0.987178749999278}, {"rank": 3, "target": "【chubu】 PJ", "score": 0.9733603603584243}, {"rank": 4, "target": "【chubu】 PY", "score": 0.9600034946025926}, {"rank": 5, "target": "【chubu】 ZB", "score": 0.9454159316139502}], "法学部": [{"rank": 1, "target": "【chubu】 BS", "score": 0.9360076876504889}, {"rank": 2, "target": "【chubu】 HX", "score": 0.9234086585704466}, {"rank": 3, "target": "【chubu】 NA", "score": 0.9058876053867007}, {"rank": 4, "target": "【chubu】 ZC", "score": 0.9016845620469305}, {"rank": 5, "target": "【chubu】 HH", "score": 0.8998199846766439}], "経済学部": [{"rank": 1, "target": "【chubu】 BS", "score": 0.9743809418906689}, {"rank": 2, "target": "【chubu】 HW", "score": 0.9427253294240191}, {"rank": 3, "target": "【chubu】 ZC", "score": 0.922952437897601}, {"rank": 4, "target": "【chubu】 HH", "score": 0.9127920752221984}, {"rank": 5, "target": "【chubu】 HX", "score": 0.9087421727792894}], "インダストリアルデザインコース": [{"rank": 1, "target": "【chubu】 EA", "score": 0.9285815829493153}, {"rank": 2, "target": "【chubu】 HM", "score": 0.9166493629808491}, {"rank": 3, "target": "【chubu】 EC", "score": 0.8713157526055383}, {"rank": 4, "target": "【chubu】 AA", "score": 0.863033854560324}, {"rank": 5, "target": "【chubu】 PY", "score": 0.8589373740984341}], "メディアデザインコース": [{"rank": 1, "target": "【chubu】 HM", "score": 0.9438725131335016}, {"rank": 2, "target": "【chubu】 AR", "score": 0.8849180660622222}, {"rank": 3, "target": "【chubu】 EA", "score": 0.877666976524261}, {"rank": 4, "target": "【chubu】 EP", "score": 0.876751294150874}, {"rank": 5, "target": "【chubu】 AA", "score": 0.8494124259188627}], "動物生産科学コース": [{"rank": 1, "target": "【chubu】 FS", "score": 0.9591155067113601}, {"rank": 2, "target": "【chubu】 FR", "score": 0.9141931103932471}, {"rank": 3, "target": "【chubu】 FT", "score": 0.8816585257386578}, {"rank": 4, "target": "【chubu】 AS", "score": 0.868091179568648}, {"rank": 5, "target": "【chubu】 EK", "score": 0.8632946681799571}], "化学工学科": [{"rank": 1, "target": "【chubu】 EL", "score": 0.9811908920609046}, {"rank": 2, "target": "【chubu】 AU", "score": 0.9785528157109518}, {"rank": 3, "target": "【chubu】 EK", "score": 0.9781983323413583}, {"rank": 4, "target": "【chubu】 EM", "score": 0.9728419775554321}, {"rank": 5, "target": "【chubu】 EC", "score": 0.9555439830724602}], "化学科": [{"rank": 1, "target": "【chubu】 AS", "score": 0.9697418111650368}, {"rank": 2, "target": "【chubu】 EK", "score": 0.9667696738221669}, {"rank": 3, "target": "【chubu】 AE", "score": 0.9517321865426636}, {"rank": 4, "target": "【chubu】 FR", "score": 0.9379003065865513}, {"rank": 5, "target": "【chubu】 EL", "score": 0.9286323765315992}], "医学部保健学科": [{"rank": 1, "target": "【chubu】 LB", "score": 0.99341446917601}, {"rank": 2, "target": "【chubu】 LP", "score": 0.993217893627892}, {"rank": 3, "target": "【chubu】 LC", "score": 0.9854836263671227}, {"rank": 4, "target": "【chubu】 LS", "score": 0.9811919922888179}, {"rank": 5, "target": "【chubu】 LE", "score": 0.9757593659315457}], "医学部保健学科放射線技術科学専攻": [{"rank": 1, "target": "【chubu】 LC", "score": 0.9831021625296492}, {"rank": 2, "target": "【chubu】 LB", "score": 0.978041542620476}, {"rank": 3, "target": "【chubu】 LP", "score": 0.9522754345496436}, {"rank": 4, "target": "【chubu】 FT", "score": 0.9499953989812627}, {"rank": 5, "target": "【chubu】 LE", "score": 0.9244665365138083}], "医学部保健学科検査技術科学専攻": [{"rank": 1, "target": "【chubu】 LB", "score": 0.9871974313789755}, {"rank": 2, "target": "【chubu】 LC", "score": 0.9858521060842858}, {"rank": 3, "target": "【chubu】 LP", "score": 0.9653911116273484}, {"rank": 4, "target": "【chubu】 FT", "score": 0.9554884194353375}, {"rank": 5, "target": "【chubu】 LE", "score": 0.9415687924540428}], "医学部保健学科看護学専攻": [{"rank": 1, "target": "【chubu】 LK", "score": 0.9933390434854349}, {"rank": 2, "target": "【chubu】 LS", "score": 0.9886521650217425}, {"rank": 3, "target": "【chubu】 LP", "score": 0.9716719886907673}, {"rank": 4, "target": "【chubu】 LE", "score": 0.9694382528280957}, {"rank": 5, "target": "【chubu】 LX", "score": 0.9610221833300577}], "医学部医学科": [{"rank": 1, "target": "【chubu】 LP", "score": 0.9865060196576251}, {"rank": 2, "target": "【chubu】 LB", "score": 0.9865039143595422}, {"rank": 3, "target": "【chubu】 LS", "score": 0.9739878567501731}, {"rank": 4, "target": "【chubu】 LC", "score": 0.9713035419106708}, {"rank": 5, "target": "【chubu】 LX", "score": 0.9712500221595539}], "医学部生命科学科": [{"rank": 1, "target": "【chubu】 LB", "score": 0.9842397539093666}, {"rank": 2, "target": "【chubu】 LP", "score": 0.9741403434474604}, {"rank": 3, "target": "【chubu】 LC", "score": 0.9670354136955589}, {"rank": 4, "target": "【chubu】 FT", "score": 0.9561032794470591}, {"rank": 5, "target": "【chubu】 LS", "score": 0.9519535556863601}], "土木工学科": [{"rank": 1, "target": "【chubu】 EC", "score": 0.9919272166248602}, {"rank": 2, "target": "【chubu】 AU", "score": 0.9766708753432126}, {"rank": 3, "target": "【chubu】 EK", "score": 0.9705144763249286}, {"rank": 4, "target": "【chubu】 EM", "score": 0.9698099196678232}, {"rank": 5, "target": "【chubu】 EL", "score": 0.9669102484971666}], "地球惑星科学科": [{"rank": 1, "target": "【chubu】 AS", "score": 0.9894707677101657}, {"rank": 2, "target": "【chubu】 EK", "score": 0.9734939182539201}, {"rank": 3, "target": "【chubu】 FR", "score": 0.9565120018922524}, {"rank": 4, "target": "【chubu】 AE", "score": 0.9554041043918082}, {"rank": 5, "target": "【chubu】 FS", "score": 0.9546639540002159}], "地球森林科学コース": [{"rank": 1, "target": "【chubu】 FS", "score": 0.9534091826725254}, {"rank": 2, "target": "【chubu】 FR", "score": 0.9125702784265897}, {"rank": 3, "target": "【chubu】 EK", "score": 0.8910256380385957}, {"rank": 4, "target": "【chubu】 AS", "score": 0.8760326488712185}, {"rank": 5, "target": "【chubu】 FT", "score": 0.8738159424538295}], "地球資源システム工学科": [{"rank": 1, "target": "【chubu】 EK", "score": 0.9882030770865812}, {"rank": 2, "target": "【chubu】 AU", "score": 0.9805176055598958}, {"rank": 3, "target": "【chubu】 EL", "score": 0.9780364486466228}, {"rank": 4, "target": "【chubu】 EC", "score": 0.9739026461488104}, {"rank": 5, "target": "【chubu】 EM", "score": 0.9713363819596111}], "建築学科": [{"rank": 1, "target": "【chubu】 EA", "score": 0.9913931995651635}, {"rank": 2, "target": "【chubu】 EC", "score": 0.9702641874784199}, {"rank": 3, "target": "【chubu】 EM", "score": 0.9530021770842698}, {"rank": 4, "target": "【chubu】 AU", "score": 0.938566449485109}, {"rank": 5, "target": "【chubu】 EL", "score": 0.9257026146521201}], "応用化学科": [{"rank": 1, "target": "【chubu】 EK", "score": 0.9884169367591705}, {"rank": 2, "target": "【chubu】 AS", "score": 0.9709694421747886}, {"rank": 3, "target": "【chubu】 EL", "score": 0.9652070907939241}, {"rank": 4, "target": "【chubu】 AU", "score": 0.9639391647744832}, {"rank": 5, "target": "【chubu】 AE", "score": 0.9621501453218249}], "応用生物科学コース": [{"rank": 1, "target": "【chubu】 FS", "score": 0.9824392803514999}, {"rank": 2, "target": "【chubu】 FR", "score": 0.9768298657888124}, {"rank": 3, "target": "【chubu】 EK", "score": 0.9642864374927469}, {"rank": 4, "target": "【chubu】 AS", "score": 0.9607016184774466}, {"rank": 5, "target": "【chubu】 FT", "score": 0.9441829384953235}], "数学科": [{"rank": 1, "target": "【chubu】 AS", "score": 0.974800167518093}, {"rank": 2, "target": "【chubu】 AE", "score": 0.9431628639364182}, {"rank": 3, "target": "【chubu】 FR", "score": 0.922331475783063}, {"rank": 4, "target": "【chubu】 EK", "score": 0.9201676454484015}, {"rank": 5, "target": "【chubu】 FS", "score": 0.9180923674523401}], "未来構想デザインコース": [{"rank": 1, "target": "【chubu】 HM", "score": 0.9596438110328556}, {"rank": 2, "target": "【chubu】 AA", "score": 0.9045801027231531}, {"rank": 3, "target": "【chubu】 EA", "score": 0.8910602075965296}, {"rank": 4, "target": "【chubu】 PJ", "score": 0.8874623712298467}, {"rank": 5, "target": "【chubu】 HX", "score": 0.88604184209684}], "材料工学科": [{"rank": 1, "target": "【chubu】 EL", "score": 0.9775511477396348}, {"rank": 2, "target": "【chubu】 AU", "score": 0.9681170558017789}, {"rank": 3, "target": "【chubu】 EK", "score": 0.9673692888811578}, {"rank": 4, "target": "【chubu】 EM", "score": 0.9662208216176474}, {"rank": 5, "target": "【chubu】 EC", "score": 0.9467437004455045}], "機械工学科": [{"rank": 1, "target": "【chubu】 EM", "score": 0.9815631028067693}, {"rank": 2, "target": "【chubu】 EL", "score": 0.9806671311548781}, {"rank": 3, "target": "【chubu】 AU", "score": 0.9773521332334377}, {"rank": 4, "target": "【chubu】 EC", "score": 0.9660919461012805}, {"rank": 5, "target": "【chubu】 EK", "score": 0.9625775651145819}], "歯学部": [{"rank": 1, "target": "【chubu】 LB", "score": 0.9856963947698861}, {"rank": 2, "target": "【chubu】 LP", "score": 0.9836959900760956}, {"rank": 3, "target": "【chubu】 LS", "score": 0.9762659801968981}, {"rank": 4, "target": "【chubu】 LC", "score": 0.9733552892952831}, {"rank": 5, "target": "【chubu】 LE", "score": 0.9728527505579787}], "物理学科": [{"rank": 1, "target": "【chubu】 AS", "score": 0.9741317681308506}, {"rank": 2, "target": "【chubu】 EK", "score": 0.9612161879500737}, {"rank": 3, "target": "【chubu】 AU", "score": 0.9525585404706741}, {"rank": 4, "target": "【chubu】 AE", "score": 0.9480862887285236}, {"rank": 5, "target": "【chubu】 FR", "score": 0.9456655857852233}], "理学部": [{"rank": 1, "target": "【chubu】 AS", "score": 0.9906249311744311}, {"rank": 2, "target": "【chubu】 EK", "score": 0.968144094830653}, {"rank": 3, "target": "【chubu】 FR", "score": 0.9622381281018303}, {"rank": 4, "target": "【chubu】 AE", "score": 0.958942523395958}, {"rank": 5, "target": "【chubu】 FS", "score": 0.9528346607258952}], "環境設計コース": [{"rank": 1, "target": "【chubu】 EA", "score": 0.9903488805973535}, {"rank": 2, "target": "【chubu】 EC", "score": 0.9417888212367055}, {"rank": 3, "target": "【chubu】 EM", "score": 0.9209904752179872}, {"rank": 4, "target": "【chubu】 AU", "score": 0.9036197508517283}, {"rank": 5, "target": "【chubu】 AR", "score": 0.8986798666619612}], "生物学科": [{"rank": 1, "target": "【chubu】 FS", "score": 0.9761248032917444}, {"rank": 2, "target": "【chubu】 FR", "score": 0.9748416269483382}, {"rank": 3, "target": "【chubu】 AS", "score": 0.9680632540408499}, {"rank": 4, "target": "【chubu】 EK", "score": 0.9461244885880217}, {"rank": 5, "target": "【chubu】 FT", "score": 0.9416397184035393}], "生物資源生産科学コース": [{"rank": 1, "target": "【chubu】 FS", "score": 0.9643817657730175}, {"rank": 2, "target": "【chubu】 FR", "score": 0.9328853853127503}, {"rank": 3, "target": "【chubu】 EK", "score": 0.90047365097246}, {"rank": 4, "target": "【chubu】 FT", "score": 0.8951801956797751}, {"rank": 5, "target": "【chubu】 AS", "score": 0.8915203729307464}], "航空宇宙工学科": [{"rank": 1, "target": "【chubu】 AU", "score": 0.980444865693231}, {"rank": 2, "target": "【chubu】 EL", "score": 0.9789045152290512}, {"rank": 3, "target": "【chubu】 EM", "score": 0.9731765761397643}, {"rank": 4, "target": "【chubu】 EK", "score": 0.9727814511689181}, {"rank": 5, "target": "【chubu】 EC", "score": 0.9596642782427688}], "船舶海洋工学科": [{"rank": 1, "target": "【chubu】 EL", "score": 0.9833555902738211}, {"rank": 2, "target": "【chubu】 AU", "score": 0.9783719926930867}, {"rank": 3, "target": "【chubu】 EM", "score": 0.9776154042942931}, {"rank": 4, "target": "【chubu】 EC", "score": 0.9651986344360391}, {"rank": 5, "target": "【chubu】 EK", "score": 0.9593522088491325}], "芸術工学部": [{"rank": 1, "target": "【chubu】 EA", "score": 0.9444930329707678}, {"rank": 2, "target": "【chubu】 HM", "score": 0.93844259707885}, {"rank": 3, "target": "【chubu】 AR", "score": 0.9000648765704341}, {"rank": 4, "target": "【chubu】 EC", "score": 0.8936294738876864}, {"rank": 5, "target": "【chubu】 AA", "score": 0.8901262216999759}], "薬学部": [{"rank": 1, "target": "【chubu】 LB", "score": 0.9786606693522852}, {"rank": 2, "target": "【chubu】 LP", "score": 0.9693245716726095}, {"rank": 3, "target": "【chubu】 LC", "score": 0.9679209226566874}, {"rank": 4, "target": "【chubu】 FT", "score": 0.9626193854843207}, {"rank": 5, "target": "【chubu】 LE", "score": 0.9505060884021511}], "薬学部創薬科学科": [{"rank": 1, "target": "【chubu】 LB", "score": 0.9619422560711411}, {"rank": 2, "target": "【chubu】 LC", "score": 0.9560045509238829}, {"rank": 3, "target": "【chubu】 FT", "score": 0.9507529977231699}, {"rank": 4, "target": "【chubu】 LP", "score": 0.9436662903876479}, {"rank": 5, "target": "【chubu】 LE", "score": 0.9286661903371071}], "薬学部臨床薬学科": [{"rank": 1, "target": "【chubu】 LP", "score": 0.9832342481690401}, {"rank": 2, "target": "【chubu】 LS", "score": 0.9807680961381704}, {"rank": 3, "target": "【chubu】 LB", "score": 0.9800223451847139}, {"rank": 4, "target": "【chubu】 LK", "score": 0.9784734886074822}, {"rank": 5, "target": "【chubu】 LE", "score": 0.9771865524657072}], "融合基礎工学科": [{"rank": 1, "target": "【chubu】 EL", "score": 0.9829896286631087}, {"rank": 2, "target": "【chubu】 EK", "score": 0.982886620051823}, {"rank": 3, "target": "【chubu】 AU", "score": 0.9794926586375038}, {"rank": 4, "target": "【chubu】 EM", "score": 0.9698403194502022}, {"rank": 5, "target": "【chubu】 AE", "score": 0.9585442505373403}], "農学部": [{"rank": 1, "target": "【chubu】 FS", "score": 0.9671136975519399}, {"rank": 2, "target": "【chubu】 FR", "score": 0.9300139221649284}, {"rank": 3, "target": "【chubu】 FT", "score": 0.8945618914094122}, {"rank": 4, "target": "【chubu】 EK", "score": 0.8920747487133096}, {"rank": 5, "target": "【chubu】 AS", "score": 0.8871740871253533}], "量子物理工学科": [{"rank": 1, "target": "【chubu】 EK", "score": 0.9757147996484722}, {"rank": 2, "target": "【chubu】 AS", "score": 0.9686522045470247}, {"rank": 3, "target": "【chubu】 AE", "score": 0.9651191758560808}, {"rank": 4, "target": "【chubu】 EL", "score": 0.951467973572055}, {"rank": 5, "target": "【chubu】 AU", "score": 0.9460114502681537}], "電気情報工学科": [{"rank": 1, "target": "【chubu】 EL", "score": 0.9790884386005205}, {"rank": 2, "target": "【chubu】 AU", "score": 0.9790732615515043}, {"rank": 3, "target": "【chubu】 EM", "score": 0.9641879259098493}, {"rank": 4, "target": "【chubu】 AR", "score": 0.9561267135914293}, {"rank": 5, "target": "【chubu】 EK", "score": 0.9439465650246008}], "音響設計コース": [{"rank": 1, "target": "【chubu】 EK", "score": 0.9530242912664709}, {"rank": 2, "target": "【chubu】 EA", "score": 0.9456721467186937}, {"rank": 3, "target": "【chubu】 AU", "score": 0.943461767105599}, {"rank": 4, "target": "【chubu】 EC", "score": 0.9425462494244914}, {"rank": 5, "target": "【chubu】 EM", "score": 0.9368903266680296}]};
+
+  const btnContainer = document.getElementById('btn-container');
+  const contentDiv = document.getElementById('content');
+
+  // 学科一覧からボタンを生成
+  Object.keys(rankingData).forEach(dept => {
+    const btn = document.createElement('button');
+    btn.className = 'dept-btn';
+    btn.textContent = dept;
+    btn.onclick = () => showRanking(dept, btn);
+    btnContainer.appendChild(btn);
+  });
+
+  function showRanking(dept, activeBtn) {
+    // アクティブなボタンのスタイルを更新
+    document.querySelectorAll('.dept-btn').forEach(b => b.classList.remove('active'));
+    activeBtn.classList.add('active');
+
+    const data = rankingData[dept];
+
+    let html = `
+      <span class="subtitle">Similarity Ranking</span>
+      <h1>「${dept}」の類似度ランキング</h1>
+    `;
+
+    data.forEach((item, index) => {
+      // スコアをパーセント表記に（例: 0.9526 -> 95.3）
+      const percentage = (item.score * 100).toFixed(1);
+      html += `
+        <div class="ranking-card" style="animation-delay: ${index * 0.1}s">
+          <div class="rank-badge">${item.rank}</div>
+          <div class="rank-info">
+            <div class="rank-name">${item.target}</div>
+            <div class="rank-score">Cosine Similarity: ${item.score.toFixed(4)}</div>
+          </div>
+          <div class="score-visual">
+            <div class="score-bar-container" title="類似度 ${percentage}%">
+              <div class="score-bar" style="width: 0%" data-width="${Math.max(2, percentage)}%"></div>
+            </div>
+            <div class="score-percentage">${percentage}%</div>
+          </div>
+        </div>
+      `;
+    });
+
+    // 描画とアニメーションのトリガー
+    contentDiv.innerHTML = '';
+
+    // DOMに反映させてからプログレスバーをアニメーションさせる
+    setTimeout(() => {
+        contentDiv.innerHTML = html;
+        setTimeout(() => {
+            document.querySelectorAll('.score-bar').forEach(bar => {
+                bar.style.width = bar.getAttribute('data-width');
+            });
+        }, 50);
+    }, 10);
+  }
+</script>
+</body>
+</html>

@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>Overall Skill Balance Comparison</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            font-family: 'Helvetica Neue', Arial, 'Hiragino Kaku Gothic ProN', 'Hiragino Sans', Meiryo, sans-serif;
+            background-color: #f4f6f9;
+            margin: 0;
+            padding: 40px 20px;
+            color: #333;
+        }
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: #ffffff;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+        }
+        h1 {
+            text-align: center;
+            font-size: 24px;
+            color: #2c3e50;
+            margin-bottom: 30px;
+        }
+        .selectors {
+            display: flex;
+            justify-content: center;
+            gap: 40px;
+            margin-bottom: 40px;
+        }
+        .select-box {
+            display: flex;
+            flex-direction: column;
+            width: 400px;
+        }
+        label {
+            font-weight: bold;
+            margin-bottom: 8px;
+            color: #4a5568;
+            font-size: 14px;
+        }
+        select {
+            padding: 12px;
+            font-size: 15px;
+            border: 1px solid #cbd5e1;
+            border-radius: 6px;
+            background-color: #fff;
+            cursor: pointer;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+        select:focus {
+            border-color: #3b82f6;
+        }
+        .chart-container {
+            display: flex;
+            justify-content: space-between;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+        .chart-wrapper {
+            position: relative;
+            flex: 1;
+            min-width: 500px;
+            height: 600px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>Overall Skill Balance Comparison</h1>
+
+    <div class="selectors">
+        <div class="select-box">
+            <label for="dept1">学部・学科 1 (青)</label>
+            <select id="dept1"></select>
+        </div>
+        <div class="select-box">
+            <label for="dept2">学部・学科 2 (赤)</label>
+            <select id="dept2"></select>
+        </div>
+    </div>
+
+    <div class="chart-container">
+        <div class="chart-wrapper">
+            <canvas id="radarChartA"></canvas>
+        </div>
+        <div class="chart-wrapper">
+            <canvas id="radarChartB"></canvas>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Python側からデータを流し込む
+    const labelsA = ["A-1: Education", "A-2: Humanities", "A-3: Arts", "A-4: Social Sciences,\nJournalism & Informatics", "A-5: Business,\nAdministration & Law", "A-6: Natural Sciences,\nMath & Statistics", "A-7: ICT", "A-8: Engineering,\nManufacturing & Construction", "A-9: Hardware Operation\n& Material Handling", "A-10: Agriculture, Forestry,\nFisheries & Veterinary", "A-11: health & Welfare", "A-12: Services"];
+    const labelsB = ["B-1: Teamwork &\nCommunication", "B-2: Critical &\nLogical Thinking", "B-3: Language &\nGlobal Competence", "B-4: Ethics", "B-5: Self-Management\n& Autonomous Growth", "B-6: Problem Solving", "B-7: Adaptability", "B-8: Creativity", "B-9: Expressiveness\n& Presentation", "B-10: Info Processing\n& Digital Literacy", "B-11: Computer skills", "B-12: Leadership &\nManagement"];
+    const dataDict = {"工学部": {"subjects": 453, "values_A": [0.08748128232072432, 0.15093548680468652, 0.315511610385763, 0.47584268774471644, 0.28104974906187424, 2.0131039314709867, 1.0323827721959626, 2.3789242792240457, 0.7763427351270421, 0.015700287249814676, 0.10307248588050975, 0.027730303012187443], "values_B": [1.369812647737649, 2.371856246894686, 0.8483550755105999, 0.42595167733433237, 2.009671310023886, 2.370896510136718, 0.8893767452859014, 0.7155212313227285, 1.1543309936649386, 1.4956771177906905, 1.0780838698163957, 0.5466101925803706]}, "経営情報学部": {"subjects": 248, "values_A": [0.18548387096774194, 0.19489247311827956, 0.11693548387096774, 1.7473118279569892, 2.0940860215053765, 0.8548387096774194, 0.7150537634408602, 0.13978494623655913, 0.12365591397849462, 0.0, 0.15188172043010753, 0.20026881720430106], "values_B": [1.971774193548387, 2.493279569892473, 1.2258064516129032, 0.6102150537634409, 2.1344086021505375, 2.174731182795699, 1.0094086021505377, 0.7486559139784946, 1.6653225806451613, 1.5873655913978495, 0.8400537634408602, 1.3158602150537635]}, "国際関係学部": {"subjects": 194, "values_A": [0.41408934707903783, 1.3694158075601375, 0.2800687285223368, 1.5601374570446735, 0.43127147766323026, 0.20618556701030927, 0.3127147766323024, 0.06701030927835051, 0.012027491408934709, 0.06013745704467354, 0.17353951890034364, 0.1134020618556701], "values_B": [2.450171821305842, 2.008591065292096, 2.584192439862543, 0.6769759450171822, 2.0859106529209623, 1.302405498281787, 1.1168384879725086, 0.5309278350515464, 2.261168384879725, 0.9742268041237113, 0.3797250859106529, 0.436426116838488]}, "人文学部": {"subjects": 568, "values_A": [0.6600200621911789, 1.5931948983492223, 0.5097972416742775, 1.6954063193117401, 0.4750475184254974, 0.2890725182002603, 0.5557864694435923, 0.12728477477348757, 0.21272868300932304, 0.01893802637220104, 0.40627110319284415, 0.17751524506555494], "values_B": [2.059308135576865, 2.3786551835410426, 2.001627541047765, 0.9117233800777318, 2.2316818435964874, 1.7379922985568894, 1.082893216146531, 0.7657535104384006, 2.0226189593580073, 1.4730158923958727, 0.6848460946082465, 0.6566767357675376]}, "応用生物学部": {"subjects": 405, "values_A": [0.16947396322802957, 0.13874430709173716, 0.03229595893876961, 0.5049338538278031, 0.4329321188462372, 2.56851369912528, 0.371093279356129, 0.5723692137159931, 0.7280235668329357, 0.7884647822839105, 1.069688426227138, 0.08676715101568712], "values_B": [1.5380792308248392, 2.2794886623774064, 1.015530494710716, 0.6361779801922939, 2.0522663196703537, 2.017723318634184, 0.8932865852189208, 0.3958589363599123, 1.3343574543964916, 1.3066037735849056, 0.4510108677317526, 0.5994301067495603]}, "生命健康科学部": {"subjects": 626, "values_A": [0.47698935851566077, 0.2959920226183267, 0.03772583884124871, 0.7487884517748882, 0.4211149960791499, 1.7866935772473176, 0.3280648603735015, 0.41205470398514965, 0.6765705570633512, 0.032940554571045964, 2.8594546954237274, 0.19872697678578563], "values_B": [1.7316356432002455, 2.192640350383313, 0.9787696060572374, 1.1560920962117998, 2.018751481042154, 1.971764580595661, 0.9563054041267843, 0.18746898160597775, 1.2015603284085896, 1.0387315089833384, 0.29827709155080223, 0.621879223606036]}, "現代教育学部": {"subjects": 368, "values_A": [2.7747323684633485, 0.642957558660541, 0.616494334997074, 1.3411376612837358, 0.4836298819865466, 0.597218745727571, 0.4888880984437893, 0.11365678346810422, 0.4837061453007892, 0.028401717080962365, 1.3373877311795752, 0.25334760818631785], "values_B": [2.5364585483270816, 2.3001475204761874, 1.5998553192710225, 1.2993793249423193, 2.368274373447836, 2.079246512600134, 1.2884073614444886, 1.1112406562802182, 2.1774989848635617, 1.3361460004795367, 0.6048219493137327, 1.1703379913970298]}, "理工学部": {"subjects": 421, "values_A": [0.1277503516338547, 0.10253023503636215, 0.06585926173748188, 0.3612501869473167, 0.18662545468901334, 2.3199983315222132, 0.9368304368386062, 1.6246951440380446, 0.5508011560620352, 0.018524495069345566, 0.10918956789306988, 0.09173450801085462], "values_B": [1.396322664873125, 2.4603778453813856, 0.7840164943005203, 0.29681016728290843, 2.011944486948844, 2.414446922667063, 0.9670157344083057, 0.5413839634214341, 1.1236118063101888, 1.2861006838453601, 0.9807798908948082, 0.39593129877019645]}, "人間力創成総合教育センター": {"subjects": 922, "values_A": [0.39370932754880694, 1.031814895155459, 0.29067245119305857, 0.9251626898047722, 0.3185104844540853, 0.6084598698481561, 0.6077368040491685, 0.10773680404916848, 0.33116413593637023, 0.03109182935647144, 0.49783080260303686, 0.19956616052060738], "values_B": [2.0, 1.8546637744034706, 1.9663774403470715, 0.7299349240780911, 2.1149674620390457, 1.3879248011569052, 1.0079537237888647, 0.39515545914678235, 1.6467823571945046, 1.0375994215473607, 0.6814895155459146, 0.24078091106290672]}, "教職課程": {"subjects": 107, "values_A": [2.9968847352024923, 0.7601246105919003, 0.09968847352024922, 1.8286604361370717, 0.940809968847352, 0.30218068535825543, 0.8785046728971962, 0.059190031152647975, 0.04361370716510903, 0.04984423676012461, 1.1308411214953271, 0.018691588785046728], "values_B": [2.573208722741433, 2.5171339563862927, 1.6666666666666667, 1.6386292834890965, 2.174454828660436, 2.068535825545171, 1.1059190031152648, 0.8660436137071651, 2.115264797507788, 1.4766355140186915, 0.7445482866043613, 1.6417445482866044]}, "学芸員課程": {"subjects": 10, "values_A": [2.033333333333333, 1.8, 0.9, 2.0, 1.6, 0.3, 0.8666666666666667, 0.26666666666666666, 0.36666666666666664, 0.13333333333333333, 0.43333333333333335, 1.0666666666666667], "values_B": [1.9666666666666666, 2.7333333333333334, 1.3666666666666667, 1.6333333333333333, 1.9333333333333333, 1.9333333333333333, 1.1666666666666667, 0.8333333333333334, 1.6666666666666667, 1.6666666666666667, 0.9, 1.5]}, "司書課程": {"subjects": 7, "values_A": [0.9523809523809523, 1.0952380952380953, 0.6666666666666666, 3.0, 1.1904761904761905, 0.0, 0.8095238095238095, 0.0, 0.14285714285714285, 0.0, 0.38095238095238093, 0.8095238095238095], "values_B": [1.9047619047619047, 2.238095238095238, 1.3333333333333333, 1.1904761904761905, 1.7142857142857142, 1.4761904761904763, 0.8095238095238095, 0.7619047619047619, 1.7619047619047619, 2.0, 0.6190476190476191, 1.1904761904761905]}};
+
+    const dept1Select = document.getElementById('dept1');
+    const dept2Select = document.getElementById('dept2');
+
+    // セレクトボックスに選択肢（学部名）を追加
+    Object.keys(dataDict).sort().forEach((dept, index) => {
+        const text = `${dept} (Subjects: ${dataDict[dept].subjects})`;
+
+        const opt1 = document.createElement('option');
+        opt1.value = dept;
+        opt1.textContent = text;
+        dept1Select.appendChild(opt1);
+
+        const opt2 = document.createElement('option');
+        opt2.value = dept;
+        opt2.textContent = text;
+        dept2Select.appendChild(opt2);
+
+        // 初期選択状態で2番目のセレクトボックスは2個目の学部を選ぶようにする
+        if (index === 1) {
+            opt2.selected = true;
+        }
+    });
+
+    const commonOptions = {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+            r: {
+                min: 0,
+                max: 3,
+                ticks: {
+                    stepSize: 0.5,
+                    backdropColor: 'transparent'
+                },
+                pointLabels: {
+                    font: {
+                        size: 11,
+                        weight: 'bold'
+                    },
+                    color: '#475569'
+                }
+            }
+        },
+        plugins: {
+            legend: {
+                position: 'top',
+                labels: {
+                    font: {
+                        size: 14,
+                        weight: 'bold'
+                    }
+                }
+            }
+        }
+    };
+
+    function createDataset(label, colorRGB) {
+        return {
+            label: label,
+            data: [],
+            backgroundColor: `rgba(${colorRGB}, 0.2)`,
+            borderColor: `rgba(${colorRGB}, 1)`,
+            borderWidth: 2,
+            pointBackgroundColor: `rgba(${colorRGB}, 1)`,
+            pointHoverBackgroundColor: '#fff',
+            pointHoverBorderColor: `rgba(${colorRGB}, 1)`
+        };
+    }
+
+    // Chart.js レーダーチャートの初期化
+    const ctxA = document.getElementById('radarChartA').getContext('2d');
+    const radarChartA = new Chart(ctxA, {
+        type: 'radar',
+        data: {
+            labels: labelsA,
+            datasets: [
+                createDataset('', '54, 162, 235'),
+                createDataset('', '255, 99, 132')
+            ]
+        },
+        options: {
+            ...commonOptions,
+            plugins: {
+                ...commonOptions.plugins,
+                title: {
+                    display: true,
+                    text: '知識関連スキル (A-1〜A-12)',
+                    font: { size: 18 }
+                }
+            }
+        }
+    });
+
+    const ctxB = document.getElementById('radarChartB').getContext('2d');
+    const radarChartB = new Chart(ctxB, {
+        type: 'radar',
+        data: {
+            labels: labelsB,
+            datasets: [
+                createDataset('', '54, 162, 235'),
+                createDataset('', '255, 99, 132')
+            ]
+        },
+        options: {
+            ...commonOptions,
+            plugins: {
+                ...commonOptions.plugins,
+                title: {
+                    display: true,
+                    text: '汎用スキル関連 (B-1〜B-12)',
+                    font: { size: 18 }
+                }
+            }
+        }
+    });
+
+    // 選択された学部のデータにチャートを更新する関数
+    function updateChart() {
+        const val1 = dept1Select.value;
+        const val2 = dept2Select.value;
+
+        if (dataDict[val1]) {
+            radarChartA.data.datasets[0].label = `${val1} (${dataDict[val1].subjects} sub)`;
+            radarChartA.data.datasets[0].data = dataDict[val1].values_A;
+            radarChartB.data.datasets[0].label = `${val1} (${dataDict[val1].subjects} sub)`;
+            radarChartB.data.datasets[0].data = dataDict[val1].values_B;
+        }
+        if (dataDict[val2]) {
+            radarChartA.data.datasets[1].label = `${val2} (${dataDict[val2].subjects} sub)`;
+            radarChartA.data.datasets[1].data = dataDict[val2].values_A;
+            radarChartB.data.datasets[1].label = `${val2} (${dataDict[val2].subjects} sub)`;
+            radarChartB.data.datasets[1].data = dataDict[val2].values_B;
+        }
+        radarChartA.update();
+        radarChartB.update();
+    }
+
+    dept1Select.addEventListener('change', updateChart);
+    dept2Select.addEventListener('change', updateChart);
+
+    updateChart();
+</script>
+
+</body>
+</html>
