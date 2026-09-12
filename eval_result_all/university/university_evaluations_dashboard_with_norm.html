@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>学科レベル評価 統合ダッシュボード</title>
+    <title>大学レベル評価 統合ダッシュボード（正規化版）</title>
     <style>
         body {
             font-family: sans-serif;
@@ -68,25 +68,20 @@
 <body>
 
     <div class="header">
-        <h1>学科レベル評価 統合ダッシュボード</h1>
+        <h1>大学レベル評価 統合ダッシュボード（正規化版）</h1>
     </div>
 
     <div class="tabs">
         <button class="tab-button active" onclick="openTab(event, 'SkillGraph')">1. レーダーチャート</button>
-        <button class="tab-button" onclick="openTab(event, 'PCA')">2. PCAクラスタリング</button>
-        <button class="tab-button" onclick="openTab(event, 'Ranking')">3. 類似度ランキング</button>
+        <button class="tab-button" onclick="openTab(event, 'Ranking')">2. 類似度ランキング</button>
     </div>
 
     <div id="SkillGraph" class="tab-content active">
-        <iframe src="department_skill_graph_DBVer.html"></iframe>
-    </div>
-
-    <div id="PCA" class="tab-content">
-        <iframe src="department_pca_cluster_k4_Ver3.html"></iframe>
+        <iframe src="university_radar_comparison_DBVer_with_norm.html?t=1789196057"></iframe>
     </div>
 
     <div id="Ranking" class="tab-content">
-        <iframe src="similarity_ranking_with_chart_完全版_DBVer2.html"></iframe>
+        <iframe src="similarity_ranking_with_chart_university_DBVer_with_norm.html?t=1789196057"></iframe>
     </div>
 
     <script>
